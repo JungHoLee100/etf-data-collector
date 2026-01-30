@@ -1,21 +1,29 @@
 name: Daily ETF Data Sync
 on:
   schedule:
-    - cron: '30 23 * * *' # 한국시간 기준 오전 8시 30분
-  workflow_dispatch: # 수동 실행 버튼
+    - cron: '30 23 * * *' # 한국시간 오전 8시 30분
+  workflow_dispatch:
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.11' # 최신 버전 권장
+          
       - name: Install dependencies
-        run: pip install pykrx pandas yfinance google-api-python-client google-auth-httplib2 google-auth-oauthlib
+        run: pip install pykrx pandas
+        
       - name: Run Collector
-        env:
-          GDRIVE_CREDENTIALS: ${{ secrets.GDRIVE_CREDENTIALS }}
-          GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
         run: python collector.py
+        
+      - name: Commit and Push changes # 이 부분이 핵심입니다!
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add *.csv
+          git commit -m "Update ETF data: $(date +'%Y-%m-%d')" || echo "No changes to commit"
+          git push
