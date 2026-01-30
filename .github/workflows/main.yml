@@ -26,14 +26,14 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 1. 새로 생성된 CSV 파일들을 먼저 장바구니에 담습니다.
-          git add *.csv
+          # 로컬 파일 강제 추가
+          git add CSV_A.csv CSV_B.csv CSV_C.csv CSV_D.csv CSV_E.csv
           
-          # 2. 로컬에서 먼저 저장을 완료합니다. (변경 사항이 없으면 통과)
+          # 변경사항 커밋 (없으면 무시)
           git commit -m "Update Market Data: $(date +'%Y-%m-%d')" || echo "No changes to commit"
           
-          # 3. 이제 서버의 최신 변경사항을 가져와 내 저장분 위에 쌓습니다.
+          # 서버의 최신 상태를 가져오되, 로컬 변경사항을 무조건 위로 올림 (Overwrite 전략)
           git pull --rebase origin main
           
-          # 4. 최종적으로 서버에 올립니다.
-          git push
+          # 최종 푸시
+          git push origin main
