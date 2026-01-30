@@ -1,74 +1,62 @@
 import pandas as pd
-import os, json, ssl, requests
-from io import StringIO
-from google import genai
+import os, json, requests, ssl
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from google import genai
 from dotenv import load_dotenv
 
-# SSL 및 환경변수 설정
-ssl._create_default_https_context = ssl._create_unverified_context
 load_dotenv()
-
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# --- 🌐 GitHub 데이터 경로 ---
 GITHUB_USER = "JungHoLee100"
 REPO_NAME = "etf-data-collector"
-RAW_URL = f"https://raw.githubusercontent.com/{GITHUB_USER}/{REPO_NAME}/main/CSV_A_Analysis.csv"
+BASE_URL = f"https://raw.githubusercontent.com/{GITHUB_USER}/{REPO_NAME}/main"
+API_KEY = os.getenv("GEMINI_API_KEY")
+client = genai.Client(api_key=API_KEY)
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-client = genai.Client(api_key=GEMINI_API_KEY)
-
-@app.get("/api/analyze/latest")
-def get_latest_analysis():
+# 1. 정적 파일 (A, C, E) 로드
+@app.get("/api/data/{file_type}")
+def get_static_data(file_type: str):
+    file_names = {"A": "CSV_A_Analysis.csv", "C": "CSV_C.csv", "E": "CSV_E.csv"}
+    target = file_names.get(file_type.upper())
+    if not target: return {"error": "Invalid type"}
     try:
-        # 💡 [가장 확실한 방법] 파일을 먼저 다운로드한 후, 직접 인코딩을 지정해 읽습니다.
-        response = requests.get(RAW_URL)
-        response.encoding = 'utf-8' # 한글 강제 지정
-        
-        # 다운로드된 텍스트 데이터를 pandas로 읽기
-        df = pd.read_csv(StringIO(response.text))
-        
-        if 'ticker' in df.columns:
-            df['ticker'] = df['ticker'].astype(str).str.replace("'", "")
-            
-        return {
-            "source": "GitHub Cloud Storage (UTF-8 Verified)",
-            "data": df.fillna(0).to_dict(orient="records")
-        }
-    except Exception as e:
-        # 에러 발생 시 로그를 명확히 남깁니다.
-        return {"error": f"데이터 로드 실패: {str(e)}"}
+        df = pd.read_csv(f"{BASE_URL}/{target}", encoding='utf-8-sig')
+        return {"data": df.fillna(0).to_dict(orient="records")}
+    except: return {"error": "파일을 찾을 수 없습니다."}
 
-@app.post("/api/ai-strategy")
-def get_ai_strategy(data: dict):
-    target_stock = data.get("stock_info")
+# 2. 심층 분석 (PDF 확인 -> 구성종목 추출 -> D/B API 분석)
+@app.post("/api/deep-analyze")
+def deep_analyze(info: dict):
+    name = info.get("name")
+    code = info.get("code")
+    
+    # 💡 PDF 파일명 규칙 확인 (날짜는 최신순 조회가 필요하므로 목록 확인 로직 권장)
+    # 여기서는 GitHub API를 사용하여 reports 폴더 내 해당 종목코드가 포함된 PDF가 있는지 확인합니다.
+    pdf_list_url = f"https://api.github.com/repos/{GITHUB_USER}/{REPO_NAME}/contents/reports"
+    res = requests.get(pdf_list_url)
+    files = res.json()
+    
+    # 파일명에 (종목코드)가 포함된 PDF 찾기
+    target_pdf = next((f['download_url'] for f in files if f['name'].endswith(".pdf") and f"({code})" in f['name']), None)
+
+    if not target_pdf:
+        return {"status": "NEED_PDF", "message": f"해당 종목의 운영보고서 PDF가 없습니다. '날짜_{name}({code})_운영보고서.pdf' 형식으로 reports 폴더에 업로드해 주세요."}
+
+    # 💡 PDF가 있을 경우 Gemini가 수행할 작업 프롬프트
     prompt = f"""
-    당신은 대한민국 최고의 ETF 퀀트 애널리스트입니다. 아래 데이터를 바탕으로 투자 전략을 수립하세요.
+    당신은 ETF 분석 전문가입니다. 
+    1. 다음 PDF({target_pdf})에서 이 ETF의 '구성 종목 리스트'를 모두 추출하세요.
+    2. 추출된 개별 기업들에 대해 실시간 주가 정보(CSV_D 대체용 API 데이터)를 분석하세요.
+    3. 지난 30일간 외국인/기관의 선물/옵션 포지션(CSV_B 대체용 API 데이터)을 참고하여 향후 방향성을 예측하세요.
+    4. 최종적으로 이 ETF에 대한 '매수/보유/관망' 의견과 그 이유를 기술하세요.
     
-    [종목 정보]
-    - 종목명: {target_stock.get('name')} ({target_stock.get('ticker')})
-    - 현재 등급: {target_stock.get('grade_score')} ({target_stock.get('description')})
-    - 1달 초과수익(Alpha): {target_stock.get('alpha_1m')}%
-    - 거래량 에너지(RVOL): {target_stock.get('rvol')}%
-    - 1주 추세: {target_stock.get('trend_1w')}
-    
-    [분석 지침]
-    1. 해당 등급(S, A, B, F)의 의미를 설명하고 현재 점수(1~10)가 시사하는 바를 분석하세요.
-    2. 수익률, 거래량, 추세의 조화를 바탕으로 '매수/보유/관망' 의견을 제시하세요.
-    3. 특히 {target_stock.get('vol_status')} 상태인 거래량이 향후 주가에 미칠 영향을 서술하세요.
-    
-    형식: 전문가 리포트 스타일로 작성.
+    *참고: API 데이터는 당신이 보유한 실시간 금융 지식과 추론 능력을 바탕으로 최신 상태를 반영하세요.
     """
+    
     try:
         response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
-        return {"report": response.text}
+        return {"status": "SUCCESS", "analysis": response.text}
     except Exception as e:
-        return {"error": f"AI 분석 중 오류 발생: {str(e)}"}
-
-if __name__ == "__main__":
-    import uvicorn
-    port = int(os.environ.get("PORT", 10000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+        return {"status": "ERROR", "message": str(e)}
