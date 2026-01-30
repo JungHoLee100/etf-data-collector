@@ -9,7 +9,7 @@ const App = () => {
   const [modalStock, setModalStock] = useState(null);
   const [modalAnalysis, setModalAnalysis] = useState("");
 
-  const API_BASE = "http://localhost:8001/api";
+  const API_BASE = "https://etf-data-collector.onrender.com";
 
   // --- 1. 스타일 정의 (등급별 색상 매핑) ---
   const getGradeStyle = (gradeScore) => {
