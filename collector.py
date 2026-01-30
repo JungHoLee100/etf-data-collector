@@ -2,6 +2,10 @@ import os, pandas as pd
 from datetime import datetime, timedelta
 from pykrx import stock
 import yfinance as yf
+yf.pdr_override() # 필요한 경우
+import requests_cache
+# 캐시를 사용하지 않도록 설정
+session = None
 import time
 
 def run():
