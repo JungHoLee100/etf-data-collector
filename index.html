@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ETF ALPHA MATRIX</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { margin: 0; font-family: 'Pretendard', sans-serif; background-color: #fcfcfc; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- [PART 1] 비밀번호 게이트 ---
+        const App = () => {
+            const [password, setPassword] = useState("");
+            const [isAuthorized, setIsAuthorized] = useState(false);
+            const MASTER_PASSWORD = "sd*11070823"; 
+
+            const handleLogin = () => {
+                if (password === MASTER_PASSWORD) {
+                    setIsAuthorized(true);
+                    sessionStorage.setItem("isAuth", "true");
+                } else {
+                    alert("비밀번호가 틀렸습니다!");
+                }
+            };
+
+            useEffect(() => {
+                if (sessionStorage.getItem("isAuth") === "true") {
+                    setIsAuthorized(true);
+                }
+            }, []);
+
+            if (!isAuthorized) {
+                return (
+                    <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: '#121212' }}>
+                        <div style={{ padding: '40px', background: '#fff', borderRadius: '20px', textAlign: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
+                            <h2 style={{ color: '#007bff', marginBottom: '15px' }}>📡 ETF ALPHA MATRIX</h2>
+                            <p style={{ color: '#666', fontSize: '14px', marginBottom: '20px' }}>비공개 시스템 접속을 위해 인증이 필요합니다.</p>
+                            <input 
+                                type="password" 
+                                placeholder="Password" 
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                                style={{ padding: '12px', width: '220px', borderRadius: '8px', border: '1px solid #ddd', marginBottom: '15px', textAlign: 'center' }}
+                            />
+                            <br />
+                            <button onClick={handleLogin} style={{ width: '100%', padding: '12px', background: '#007bff', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>시스템 로그인</button>
+                        </div>
+                    </div>
+                );
+            }
+            return <Dashboard />;
+        };
+
+        // --- [PART 2] 대시보드 ---
+        const Dashboard = () => {
+            const [etfList, setEtfList] = useState([]);
+            const [isLoading, setIsLoading] = useState(true);
+            const [modalStock, setModalStock] = useState(null);
+            const [modalAnalysis, setModalAnalysis] = useState("");
+
+            const API_BASE = "https://etf-data-collector.onrender.com/api";
+
+            const loadData = async () => {
+                setIsLoading(true);
+                try {
+                    const res = await fetch(`${API_BASE}/analyze/latest`);
+                    const result = await res.json();
+                    if (result?.data) setEtfList(result.data);
+                } catch (err) {
+                    console.error("서버 연결 실패:", err);
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            useEffect(() => { loadData(); }, []);
+
+            const handleStockClick = async (etf) => {
+                setModalStock(etf);
+                setModalAnalysis("🤖 AI 분석 중...");
+                try {
+                    const res = await fetch(`${API_BASE}/ai-strategy`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ stock_info: etf })
+                    });
+                    const data = await res.json();
+                    setModalAnalysis(data.report || "결과 없음");
+                } catch (err) { setModalAnalysis("에러 발생"); }
+            };
+
+            const getGradeStyle = (gradeScore) => {
+                const grade = gradeScore?.charAt(0) || 'F';
+                const styles = {
+                    S: { bg: '#fff5f5', color: '#d9534f', border: '1px solid #d9534f' },
+                    A: { bg: '#f0fff4', color: '#28a745', border: '1px solid #28a745' },
+                    B: { bg: '#fffaf0', color: '#f0ad4e', border: '1px solid #f0ad4e' },
+                    F: { bg: '#f8f9fa', color: '#6c757d', border: '1px solid #ddd' }
+                };
+                return styles[grade] || styles.F;
+            };
+
+            if (isLoading) return <div style={{ textAlign: 'center', marginTop: '50px' }}>데이터 수신 중...</div>;
+
+            return (
+                <div style={{ padding: '20px' }}>
+                    <h1 style={{ color: '#007bff' }}>📡 ETF ALPHA MATRIX</h1>
+                    <div style={{ background: '#fff', borderRadius: '10px', overflowX: 'auto', border: '1px solid #eee' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                            <thead style={{ background: '#333', color: '#fff' }}>
+                                <tr>
+                                    <th style={{ padding: '12px' }}>종목명</th>
+                                    <th>현재가</th>
+                                    <th>등급</th>
+                                    <th>Alpha</th>
+                                    <th>추세</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {etfList.map((etf, i) => {
+                                    const style = getGradeStyle(etf.grade_score);
+                                    return (
+                                        <tr key={i} onDoubleClick={() => handleStockClick(etf)} style={{ borderBottom: '1px solid #eee', textAlign: 'center' }}>
+                                            <td style={{ padding: '12px', fontWeight: 'bold' }}>{etf.name}</td>
+                                            <td>{Number(etf.price_curr).toLocaleString()}</td>
+                                            <td><span style={{ backgroundColor: style.bg, color: style.color, padding: '3px 8px', borderRadius: '10px' }}>{etf.grade_score}</span></td>
+                                            <td style={{ color: etf.alpha_1m > 0 ? 'red' : 'blue' }}>{etf.alpha_1m}%</td>
+                                            <td>{etf.trend_1w}</td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                    {modalStock && (
+                        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                            <div style={{ background: '#fff', padding: '20px', borderRadius: '15px', width: '80%', maxHeight: '80%', overflowY: 'auto' }}>
+                                <h3>{modalStock.name} 분석</h3>
+                                <pre style={{ whiteSpace: 'pre-wrap' }}>{modalAnalysis}</pre>
+                                <button onClick={() => setModalStock(null)}>닫기</button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
