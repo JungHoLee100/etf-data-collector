@@ -1,30 +1,48 @@
 import os, pandas as pd
+import time
 from datetime import datetime, timedelta
 from pykrx import stock
 import yfinance as yf
 
-# 1. 날짜 설정 (최근 30거래일 확보를 위해 약 45일 범위 설정)
+# 1. 날짜 설정 (최근 30거래일 확보)
 end_date = (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
 start_date = (datetime.now() - timedelta(days=45)).strftime("%Y%m%d")
 
 def run():
-    print(f"[{start_date} ~ {end_date}] 전 종목 포함 통합 데이터 수집 시작...")
-
+    print(f"[{datetime.now()}] 전 종목 무제한 수집 엔진 가동...")
+    
+    # 공통 영업일 리스트 확보
     try:
-        # --- CSV A: ETF 마스터 (종가/거래량 30일 시계열) ---
-        etf_list = stock.get_etf_ticker_list(end_date)
+        b_days = stock.get_market_ohlcv_by_date(start_date, end_date, "005930").index
+        print(f"수집 대상 영업일: {len(b_days)}일 확인")
+    except:
+        print("영업일 데이터를 가져오는데 실패했습니다. 종료합니다.")
+        return
+
+    # --- CSV A: 모든 ETF (시장구분/종가/거래량) ---
+    try:
+        print("CSV A 생성 중 (전체 ETF)...")
+        etf_tickers = stock.get_etf_ticker_list(end_date)
         list_a = []
-        for t in etf_list[:50]: # 주요 ETF 50개 대상
+        for t in etf_tickers:
+            name = stock.get_etf_ticker_name(t)
+            # 기초지수명을 가져와서 시장 구분(KOSPI200/KOSDAQ150 등) 보조 지표로 활용
+            meta = stock.get_etf_item_info(t)
             df = stock.get_market_ohlcv_by_date(start_date, end_date, t)
+            
             if not df.empty:
-                row = {'market': 'ETF', 'ticker': t, 'name': stock.get_etf_ticker_name(t)}
+                row = {'ticker': t, 'name': name, 'base_index': meta.get('기초지수명', 'N/A')}
                 for date, data in df.iterrows():
                     d_str = date.strftime('%Y-%m-%d')
                     row[f"{d_str}_P"], row[f"{d_str}_V"] = data['종가'], data['거래량']
                 list_a.append(row)
-        pd.DataFrame(list_a).to_csv('CSV_A_ETF_30D.csv', index=False, encoding='utf-8-sig')
+        pd.DataFrame(list_a).to_csv('CSV_A_ETF_ALL_30D.csv', index=False, encoding='utf-8-sig')
+        print(f"CSV A 완료: {len(list_a)}개 종목")
+    except Exception as e: print(f"CSV A 오류: {e}")
 
-        # --- CSV B: 파생상품 포지션 (선물/옵션 외국인·기관) ---
+    # --- CSV B: 파생상품 포지션 (선물/옵션) ---
+    try:
+        print("CSV B 생성 중 (파생 수급)...")
         derivatives = {"101SC": "K200_Futures", "201SC": "K200_Call", "301SC": "K200_Put"}
         list_b = []
         for code, d_name in derivatives.items():
@@ -35,47 +53,51 @@ def run():
                     row[f"{d.strftime('%Y-%m-%d')}_Vol"] = val
                 list_b.append(row)
         pd.DataFrame(list_b).to_csv('CSV_B_Derivatives_30D.csv', index=False, encoding='utf-8-sig')
+        print("CSV B 완료")
+    except Exception as e: print(f"CSV B 오류: {e}")
 
-        # --- CSV C: 글로벌 매크로 ---
+    # --- CSV C: 글로벌 매크로 ---
+    try:
+        print("CSV C 생성 중 (Global)...")
         indices = {'^IXIC': 'Nasdaq', 'KRW=X': 'USD_KRW', '^SOX': 'Semicon'}
         df_c = yf.download(list(indices.keys()), start=pd.to_datetime(start_date), end=pd.to_datetime(end_date))['Close']
         df_c.T.to_csv('CSV_C_Global_30D.csv', encoding='utf-8-sig')
+        print("CSV C 완료")
+    except Exception as e: print(f"CSV C 오류: {e}")
 
-        # --- CSV D: [업데이트] 국내 주식 전 종목 30일 종가 ---
-        print("CSV D: 전 종목 시계열 데이터 생성 중...")
-        # 영업일 리스트 추출
-        business_days = stock.get_market_ohlcv_by_date(start_date, end_date, "005930").index
-        all_stocks_data = {}
-
-        for d in business_days:
+    # --- CSV D: 전 종목 (KOSPI/KOSDAQ) 30일 종가 ---
+    try:
+        print("CSV D 생성 중 (전 종목 시계열)...")
+        day_cols = {}
+        for d in b_days:
             d_str = d.strftime("%Y%m%d")
-            # 해당 날짜의 전 종목 종가 가져오기 (KOSPI + KOSDAQ)
-            df_kospi = stock.get_market_ohlcv_by_ticker(d_str, market="KOSPI")['종가']
-            df_kosdaq = stock.get_market_ohlcv_by_ticker(d_str, market="KOSDAQ")['종가']
-            all_stocks_data[d.strftime('%Y-%m-%d')] = pd.concat([df_kospi, df_kosdaq])
-
-        df_d = pd.DataFrame(all_stocks_data)
-        # 종목명 추가를 위해 티커 리스트 확보
+            # 시장별 데이터를 한 번에 가져와서 결합 (매우 효율적임)
+            k_p = stock.get_market_ohlcv_by_ticker(d_str, market="KOSPI")['종가']
+            q_p = stock.get_market_ohlcv_by_ticker(d_str, market="KOSDAQ")['종가']
+            day_cols[d.strftime('%Y-%m-%d')] = pd.concat([k_p, q_p])
+        
+        df_d = pd.DataFrame(day_cols)
         df_d.index.name = 'ticker'
         df_d.reset_index(inplace=True)
-        # 종목명 매핑 (성능을 위해 마지막 날짜 기준 1회만 수행)
-        full_names = {t: stock.get_market_ticker_name(t) for t in df_d['ticker']}
-        df_d.insert(1, 'name', df_d['ticker'].map(full_names))
-        
+        # 종목명/시장 구분 정보 추가
+        all_names = {t: stock.get_market_ticker_name(t) for t in df_d['ticker']}
+        df_d.insert(1, 'name', df_d['ticker'].map(all_names))
         df_d.to_csv('CSV_D_All_Stocks_30D.csv', index=False, encoding='utf-8-sig')
+        print(f"CSV D 완료: {len(df_d)}개 종목")
+    except Exception as e: print(f"CSV D 오류: {e}")
 
-        # --- CSV E: 시장 모멘텀 (ADR 30일) ---
+    # --- CSV E: 시장 모멘텀 (ADR) ---
+    try:
+        print("CSV E 생성 중 (ADR)...")
         row_e = {'metric': 'Market_ADR'}
-        for d in business_days:
+        for d in b_days[-20:]: # 최근 20일치만 정밀 계산
             d_str = d.strftime("%Y%m%d")
             m_df = stock.get_market_ohlcv_by_ticker(d_str, market="KOSPI")
             ups, downs = len(m_df[m_df['대비'] > 0]), len(m_df[m_df['대비'] < 0])
             row_e[f"{d.strftime('%Y-%m-%d')}"] = round(ups/downs*100, 2) if downs != 0 else 100
         pd.DataFrame([row_e]).to_csv('CSV_E_Momentum_30D.csv', index=False, encoding='utf-8-sig')
-
-        print("모든 시장 데이터가 성공적으로 통합되었습니다.")
-    except Exception as e:
-        print(f"데이터 수집 중 오류: {e}")
+        print("CSV E 완료")
+    except Exception as e: print(f"CSV E 오류: {e}")
 
 if __name__ == "__main__":
     run()
