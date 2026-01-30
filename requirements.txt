@@ -1,9 +1,11 @@
-fastapi
-uvicorn
 pandas
-requests
-google-genai
-pdfplumber
+numpy
 pykrx
 yfinance
+requests
+fastapi
+uvicorn
 python-dotenv
+google-genai
+cryptography
+pdfplumber
