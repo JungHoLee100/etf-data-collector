@@ -15,7 +15,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 # --- 🌐 [온라인 환경 전용] GitHub 데이터 경로 설정 ---
 # 정호님의 실제 GitHub 정보를 입력해주세요.
-GITHUB_USER = "정호님ID" 
+GITHUB_USER = "JungHoLee100" 
 REPO_NAME = "etf-data-collector"
 # GitHub Actions가 매일 아침 업데이트하는 분석 파일의 실제 인터넷 주소입니다.
 RAW_URL = f"https://raw.githubusercontent.com/{GITHUB_USER}/{REPO_NAME}/main/CSV_A_Analysis.csv"
@@ -28,7 +28,7 @@ def get_latest_analysis():
     """GitHub에 저장된 최신 S/A/B/F 분석 리포트를 실시간으로 읽어옵니다."""
     try:
         # 로컬 파일 대신 GitHub Raw URL에서 직접 데이터를 땡겨옵니다.
-        df = pd.read_csv(RAW_URL)
+        df = pd.read_csv(RAW_URL, encoding='utf-8')
         
         # 엑셀 따옴표 처리 제거 및 데이터 정제
         if 'ticker' in df.columns:
