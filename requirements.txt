@@ -1,10 +1,9 @@
-pandas
-numpy
-pykrx
-yfinance
-requests
 fastapi
 uvicorn
-python-dotenv
+pandas
+requests
 google-genai
-cryptography
+pdfplumber
+pykrx
+yfinance
+python-dotenv
