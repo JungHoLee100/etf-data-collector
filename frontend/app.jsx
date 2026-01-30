@@ -54,8 +54,7 @@ const Dashboard = () => {
   const [modalStock, setModalStock] = useState(null);
   const [modalAnalysis, setModalAnalysis] = useState("");
 
-  // 💡 Render.com에 배포한 후 받은 실제 서비스 주소를 입력하세요!
-  const API_BASE = "https://your-render-app-url.onrender.com/api"; 
+  const API_BASE = "https://etf-data-collector.onrender.com/api";
 
   const getGradeStyle = (gradeScore) => {
     const grade = gradeScore?.charAt(0) || 'F';
