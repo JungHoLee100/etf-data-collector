@@ -28,7 +28,7 @@ def get_latest_analysis():
     """GitHub에 저장된 최신 S/A/B/F 분석 리포트를 실시간으로 읽어옵니다."""
     try:
         # 로컬 파일 대신 GitHub Raw URL에서 직접 데이터를 땡겨옵니다.
-        df = pd.read_csv(RAW_URL, encoding='cp949')
+        df = pd.read_csv(RAW_URL, encoding='utf-8-sig')
         
         # 엑셀 따옴표 처리 제거 및 데이터 정제
         if 'ticker' in df.columns:
