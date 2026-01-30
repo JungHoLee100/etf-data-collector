@@ -20,18 +20,20 @@ jobs:
         
       - name: Run Collector
         run: python collector.py
-        
+
       - name: Commit and Push changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 1. 일단 서버의 최신 상태를 가져와서 합칩니다 (교통 정리)
-          git pull --rebase origin main
-          
-          # 2. 만들어진 CSV 파일들을 담습니다
+          # 1. 새로 생성된 CSV 파일들을 먼저 장바구니에 담습니다.
           git add *.csv
           
-          # 3. 변경 사항이 있을 때만 저장하고 올립니다
-          git commit -m "Update ETF data with 30D time series: $(date +'%Y-%m-%d')" || echo "No changes to commit"
+          # 2. 로컬에서 먼저 저장을 완료합니다. (변경 사항이 없으면 통과)
+          git commit -m "Update Market Data: $(date +'%Y-%m-%d')" || echo "No changes to commit"
+          
+          # 3. 이제 서버의 최신 변경사항을 가져와 내 저장분 위에 쌓습니다.
+          git pull --rebase origin main
+          
+          # 4. 최종적으로 서버에 올립니다.
           git push
