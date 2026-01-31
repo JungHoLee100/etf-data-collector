@@ -2,28 +2,30 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>ETF ALPHA MATRIX v86.9</title>
+    <title>ETF ALPHA MATRIX v87.0</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
     <style>
-        /* 기존 스타일 유지 */
-        body { margin: 0; font-family: 'Pretendard', sans-serif; background: #f8f9fa; }
+        body { margin: 0; font-family: 'Pretendard', sans-serif; background: #f8f9fa; color: #333; }
         .container { padding: 25px; max-width: 1600px; margin: 0 auto; }
-        .card { background: #fff; border: 1px solid #e9ecef; border-radius: 12px; padding: 20px; margin-bottom: 25px; }
-        .section-title { font-size: 19px; font-weight: 800; color: #007bff; margin-bottom: 18px; }
+        .card { background: #fff; border: 1px solid #e9ecef; border-radius: 12px; padding: 20px; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .section-title { font-size: 19px; font-weight: 800; color: #007bff; margin-bottom: 18px; display: flex; align-items: center; gap: 10px; }
         table { width: 100%; border-collapse: collapse; font-size: 11px; }
-        th { background: #343a40; color: #fff; padding: 10px; }
-        td { padding: 10px; border-bottom: 1px solid #eee; text-align: center; }
-        .btn { padding: 8px 15px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; }
-        .btn-success { background: #28a745; color: #fff; }
+        th { background: #343a40; color: #fff; padding: 12px; position: sticky; top: 0; }
+        td { padding: 10px; border-bottom: 1px solid #f1f3f5; text-align: center; }
+        input, select { padding: 8px; border: 1px solid #ced4da; border-radius: 6px; font-size: 11px; }
+        .btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; font-size: 12px; }
         .btn-primary { background: #007bff; color: #fff; }
-        .btn-download { background: #17a2b8; color: #fff; }
-        .grid-ai { display: grid; grid-template-columns: 1.6fr 1fr; gap: 20px; }
-        pre { white-space: pre-wrap; background: #fdfdfd; padding: 15px; border-radius: 8px; border: 1px solid #eee; font-size: 14px; }
-        .rec-item { padding: 12px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 8px; cursor: pointer; }
-        .badge-grade { background: #007bff; color: white; padding: 2px 6px; border-radius: 10px; }
+        .btn-success { background: #28a745; color: #fff; }
+        .btn-info { background: #17a2b8; color: #fff; }
+        .btn-danger { background: #dc3545; color: #fff; font-size: 10px; padding: 5px 10px; }
+        .grid-ai { display: grid; grid-template-columns: 1.6fr 1fr; gap: 25px; }
+        .rec-item { padding: 15px; border: 1px solid #dee2e6; border-radius: 10px; margin-bottom: 10px; cursor: pointer; background: #fff; }
+        pre { white-space: pre-wrap; word-break: break-all; font-size: 14px; line-height: 1.8; padding: 15px; background: #fdfdfd; border-radius: 8px; border: 1px solid #eee; }
+        .badge-grade { background: #007bff; color: white; padding: 2px 8px; border-radius: 12px; font-weight: bold; }
+        .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 2000; font-weight: bold; color: #007bff; }
     </style>
 </head>
 <body>
@@ -31,12 +33,28 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
+        const App = () => {
+            const [isAuth, setIsAuth] = useState(false);
+            const [pass, setPass] = useState("");
+            if (!isAuth) return (
+                <div style={{height:'100vh', display:'flex', justifyContent:'center', alignItems:'center', background:'#121212'}}>
+                    <div style={{background:'#fff', padding:'50px', borderRadius:'24px', textAlign:'center'}}>
+                        <h2 style={{color:'#007bff', marginBottom:'25px'}}>📡 ETF ALPHA MATRIX v87.0</h2>
+                        <input type="password" value={pass} onChange={(e)=>setPass(e.target.value)} onKeyPress={(e)=>e.key==='Enter' && pass==='sd*11070823' && setIsAuth(true)} style={{padding:'15px', width:'250px', border:'2px solid #ddd', borderRadius:'12px'}} placeholder="비밀번호" />
+                    </div>
+                </div>
+            );
+            return <Dashboard />;
+        };
+
         const Dashboard = () => {
-            const [data, setData] = useState({static:{A:[],C:[],E:[]}, portfolio:{holdings:[]}});
+            const [data, setData] = useState({static:{A:[]}, portfolio:{holdings:[]}});
+            const [newAsset, setNewAsset] = useState({name:'', code:'', avg_price:'', quantity:'', manual_price:'', purchase_date:''});
             const [selectedCodes, setSelectedCodes] = useState([]);
             const [aiAnalysis, setAiAnalysis] = useState("");
             const [recommendedStocks, setRecommendedStocks] = useState([]);
             const [loading, setLoading] = useState(false);
+            const [marketFilter, setMarketFilter] = useState("");
             const [sectorFilter, setSectorFilter] = useState("");
             const [searchKeyword, setSearchKeyword] = useState("");
 
@@ -44,21 +62,36 @@
 
             useEffect(() => {
                 const init = async () => {
-                    const res = await fetch(`${API_BASE}/init`);
-                    setData(await res.json());
+                    setLoading(true);
+                    try {
+                        const res = await fetch(`${API_BASE}/init`);
+                        setData(await res.json());
+                    } catch(e) { console.error(e); }
+                    setLoading(false);
                 };
                 init();
             }, []);
 
             const runAnalysis = async (item = null) => {
-                let targetData = item ? [{code: (item.ticker || item.code), name: item.name}] : data.portfolio.holdings.filter(h => selectedCodes.includes(h.code));
-                if (targetData.length === 0) return alert("종목을 선택하세요.");
+                let targetData = [];
+                let mode = "SINGLE";
+                const validCode = item ? (item.ticker || item.code) : null;
+
+                if (item) {
+                    targetData = [{ code: String(validCode).replace(/'/g, ""), name: item.name }];
+                } else {
+                    targetData = data.portfolio.holdings.filter(h => selectedCodes.includes(h.code));
+                    mode = "PORTFOLIO";
+                }
+
+                if (targetData.length === 0) return alert("분석할 종목을 선택하세요.");
+
                 setLoading(true);
                 try {
                     const res = await fetch(`${API_BASE}/deep-analyze`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ portfolio: targetData, type: item ? "SINGLE" : "PORTFOLIO", code: item ? (item.ticker || item.code) : null })
+                        body: JSON.stringify({ portfolio: targetData, type: mode, code: validCode })
                     });
                     const result = await res.json();
                     setAiAnalysis(result.analysis);
@@ -70,7 +103,7 @@
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;
-                a.download = `ETF_Analysis_${new Date().toISOString().slice(0,10)}.txt`;
+                a.download = `ETF_Analysis_Report_${new Date().toISOString().slice(0,10)}.txt`;
                 a.click();
             };
 
@@ -82,71 +115,105 @@
                 setRecommendedStocks(unique);
             };
 
+            const savePortfolio = async (h) => await fetch(`${API_BASE}/portfolio/save`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({holdings:h}) });
+
+            const handleAddAsset = async () => {
+                const updated = [...data.portfolio.holdings, { ...newAsset, manual_price: Number(newAsset.avg_price) }];
+                setData({ ...data, portfolio: { holdings: updated } });
+                await savePortfolio(updated);
+                setNewAsset({name:'', code:'', avg_price:'', quantity:'', manual_price:'', purchase_date:''});
+            };
+
             const filteredList = useMemo(() => {
                 let list = data.static.A || [];
+                if (marketFilter === "KOSPI") list = list.filter(i => (i.name || "").includes("200") || (i.name || "").includes("코스피"));
+                if (marketFilter === "KOSDAQ") list = list.filter(i => (i.name || "").includes("150") || (i.name || "").includes("코스닥"));
                 if (sectorFilter) list = list.filter(i => (i.name || "").includes(sectorFilter));
                 if (searchKeyword) list = list.filter(i => (i.name || "").includes(searchKeyword));
                 return list;
-            }, [data.static.A, sectorFilter, searchKeyword]);
+            }, [data.static.A, marketFilter, sectorFilter, searchKeyword]);
 
             return (
                 <div className="container">
-                    {loading && <div style={{position:'fixed', top:0, left:0, width:'100%', height:'100%', background:'rgba(255,255,255,0.8)', zIndex:1000, display:'flex', justifyContent:'center', alignItems:'center'}}>⏳ 분석 중...</div>}
-                    
-                    <section className="card">
-                        <div className="section-title">💼 내 자산 관리</div>
+                    {loading && <div className="loading-overlay">⏳ AI 분석 시스템 가동 중...</div>}
+
+                    {/* 내 자산 관리 */}
+                    <section className="card" style={{borderTop: '6px solid #007bff'}}>
+                        <div className="section-title">💼 내 자산 포트폴리오</div>
+                        <div style={{display:'flex', gap:'10px', marginBottom:'20px', flexWrap:'wrap'}}>
+                            <input placeholder="종목명" value={newAsset.name} onChange={e=>setNewAsset({...newAsset, name:e.target.value})} style={{width:'150px'}} />
+                            <input placeholder="코드" value={newAsset.code} onChange={e=>setNewAsset({...newAsset, code:e.target.value})} style={{width:'100px'}} />
+                            <input type="date" value={newAsset.purchase_date} onChange={e=>setNewAsset({...newAsset, purchase_date:e.target.value})} />
+                            <input type="number" placeholder="단가" value={newAsset.avg_price} onChange={e=>setNewAsset({...newAsset, avg_price:e.target.value})} style={{width:'90px'}} />
+                            <input type="number" placeholder="수량" value={newAsset.quantity} onChange={e=>setNewAsset({...newAsset, quantity:e.target.value})} style={{width:'70px'}} />
+                            <button className="btn btn-primary" onClick={handleAddAsset}>+ 추가</button>
+                        </div>
                         <table>
-                            <thead><tr><th>선택</th><th>종목명(코드)</th><th>수익률</th></tr></thead>
+                            <thead>
+                                <tr>
+                                    <th><input type="checkbox" onChange={() => setSelectedCodes(selectedCodes.length === data.portfolio.holdings.length ? [] : data.portfolio.holdings.map(h=>h.code))} /></th>
+                                    <th>매수일</th><th>종목명(코드)</th><th>단가</th><th>수량</th><th>현재가</th><th>수익률</th><th>삭제</th>
+                                </tr>
+                            </thead>
                             <tbody>
                                 {data.portfolio.holdings.map((h, i) => (
                                     <tr key={i}>
                                         <td><input type="checkbox" checked={selectedCodes.includes(h.code)} onChange={() => setSelectedCodes(prev => prev.includes(h.code) ? prev.filter(c=>c!==h.code) : [...prev, h.code])} /></td>
-                                        <td>{h.name}({h.code})</td>
-                                        <td style={{color: (h.manual_price/h.avg_price)>=1?'red':'blue'}}>{((h.manual_price/h.avg_price - 1)*100).toFixed(2)}%</td>
+                                        <td>{h.purchase_date}</td>
+                                        <td style={{fontWeight:'bold'}}>{h.name}({h.code})</td>
+                                        <td>{Number(h.avg_price).toLocaleString()}</td>
+                                        <td>{h.quantity}</td>
+                                        <td><input type="number" value={h.manual_price} onChange={e=>{const up=[...data.portfolio.holdings]; up[i].manual_price=Number(e.target.value); setData({...data, portfolio:{holdings:up}}); savePortfolio(up);}} style={{width:'90px', border:'1px solid #007bff'}} /></td>
+                                        <td style={{fontWeight:'bold', color: (h.manual_price/h.avg_price)>=1?'red':'blue'}}>{((h.manual_price/h.avg_price - 1)*100).toFixed(2)}%</td>
+                                        <td><button className="btn-danger" onClick={()=>{const up=data.portfolio.holdings.filter((_,idx)=>idx!==i); setData({...data, portfolio:{holdings:up}}); savePortfolio(up);}}>삭제</button></td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
                     </section>
 
+                    {/* 분석 리포트 */}
                     <div className="grid-ai">
                         <section className="card">
-                            <div className="section-title">🔍 Gemini 분석</div>
+                            <div className="section-title">🔍 Gemini 통합 분석 전략</div>
                             <div style={{display:'flex', gap:'10px', marginBottom:'15px'}}>
-                                <button className="btn btn-success" onClick={() => runAnalysis()}>집중 분석</button>
-                                <button className="btn btn-primary" onClick={extractRecs}>추천 추출</button>
-                                <button className="btn btn-download" onClick={downloadReport}>📄 리포트 다운로드</button>
+                                <button className="btn btn-success" onClick={() => runAnalysis()}>선택 종목 전체 분석 ({selectedCodes.length})</button>
+                                <button className="btn btn-primary" onClick={extractRecs}>추천 추출 ➔</button>
+                                <button className="btn btn-info" onClick={downloadReport}>📄 리포트 저장</button>
                             </div>
                             <pre>{aiAnalysis || "분석 버튼을 눌러주세요."}</pre>
                         </section>
                         <section className="card">
-                            <div className="section-title">🌟 AI 추천 (더블클릭 분석)</div>
+                            <div className="section-title">🌟 AI 추천 리스트</div>
                             {recommendedStocks.map((s, idx) => (
-                                <div key={idx} className="rec-item" onDoubleClick={()=>runAnalysis(s)}>{s.name}({s.code})</div>
+                                <div key={idx} className="rec-item" onDoubleClick={()=>runAnalysis(s)}><strong>{s.name}</strong> ({s.code})</div>
                             ))}
                         </section>
                     </div>
 
+                    {/* ETF 리더보드 */}
                     <section className="card">
-                        <div className="section-title">🚀 ETF 리더보드</div>
+                        <div className="section-title">🚀 ETF 리더보드 (통합 퀀트 데이터)</div>
                         <div style={{marginBottom:'15px', display:'flex', gap:'10px'}}>
+                            <select onChange={e=>setMarketFilter(e.target.value)}><option value="">전체시장</option><option value="KOSPI">KOSPI</option><option value="KOSDAQ">KOSDAQ</option></select>
                             <select onChange={e=>setSectorFilter(e.target.value)}>
-                                <option value="">전체 섹터</option>
-                                <option value="반도체">반도체</option>
-                                <option value="2차전지">2차전지</option>
-                                <option value="미국">미국지수</option>
-                                <option value="배당">배당/채권</option>
+                                <option value="">전체 섹터</option><option value="반도체">반도체</option><option value="2차전지">2차전지</option><option value="바이오">바이오</option><option value="미국">미국지수</option>
                             </select>
-                            <input placeholder="종목 검색" onChange={e=>setSearchKeyword(e.target.value)} />
+                            <input placeholder="종목명 검색" onChange={e=>setSearchKeyword(e.target.value)} style={{width:'200px'}} />
                         </div>
                         <table>
-                            <thead><tr><th>종목명(코드)</th><th>등급</th><th>Alpha</th><th>분석</th></tr></thead>
+                            <thead>
+                                <tr><th>종목명(코드)</th><th>현재가</th><th>등급</th><th>Alpha(1M)</th><th>RVOL</th><th>1주%</th><th>인사이트</th><th>분석</th></tr>
+                            </thead>
                             <tbody>
-                                {filteredList.slice(0, 30).map((item, i) => (
+                                {filteredList.slice(0, 50).map((item, i) => (
                                     <tr key={i}>
-                                        <td>{item.name}({item.ticker})</td>
+                                        <td style={{textAlign:'left'}}><strong>{item.name}</strong>({item.ticker})</td>
+                                        <td>{Number(item.price_curr).toLocaleString()}</td>
                                         <td><span className="badge-grade">{item.grade_score}</span></td>
-                                        <td style={{color:item.alpha_1m>0?'red':'blue'}}>{item.alpha_1m}%</td>
+                                        <td style={{color:item.alpha_1m>0?'red':'blue', fontWeight:'bold'}}>{item.alpha_1m}%</td>
+                                        <td>{item.rvol}배</td><td>{item.return_1w}%</td>
+                                        <td style={{fontSize:'10px', color:'#666', textAlign:'left'}}>{item.description}</td>
                                         <td><button className="btn btn-primary" style={{fontSize:'10px'}} onClick={() => runAnalysis(item)}>Gemini</button></td>
                                     </tr>
                                 ))}
@@ -157,7 +224,7 @@
             );
         };
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<Dashboard />);
+        root.render(<App />);
     </script>
 </body>
 </html>
