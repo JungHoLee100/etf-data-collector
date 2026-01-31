@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>ETF ALPHA MATRIX v87.1 FINAL</title>
+    <title>ETF ALPHA MATRIX v87.3 FINAL</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -10,19 +10,43 @@
     <style>
         body { margin: 0; font-family: 'Pretendard', sans-serif; background: #f8f9fa; color: #333; }
         .container { padding: 25px; max-width: 1600px; margin: 0 auto; }
-        .card { background: #fff; border: 1px solid #e9ecef; border-radius: 12px; padding: 20px; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .card { background: #fff; border: 1px solid #e9ecef; border-radius: 12px; padding: 20px; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); display: flex; flex-direction: column; }
         .section-title { font-size: 19px; font-weight: 800; color: #007bff; margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between; }
+        
+        /* [UI 수정] 분석 영역 좌우 크기 대칭 및 동일 높이 설정 */
+        .grid-ai { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; align-items: stretch; }
+        .grid-ai .card { height: 600px; margin-bottom: 0; } /* 고정 높이로 위아래 크기 일치 */
+
         table { width: 100%; border-collapse: collapse; font-size: 11px; }
-        th { background: #343a40; color: #fff; padding: 12px; position: sticky; top: 0; }
+        th { background: #343a40; color: #fff; padding: 12px; position: sticky; top: 0; z-index: 10; }
         td { padding: 10px; border-bottom: 1px solid #f1f3f5; text-align: center; }
-        .btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; font-size: 12px; }
+        
+        .btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; font-size: 12px; transition: 0.3s; }
         .btn-primary { background: #007bff; color: #fff; }
         .btn-success { background: #28a745; color: #fff; }
         .btn-warning { background: #ffc107; color: #333; }
-        .grid-ai { display: grid; grid-template-columns: 1.6fr 1fr; gap: 25px; }
-        pre { white-space: pre-wrap; font-size: 14px; padding: 15px; background: #fdfdfd; border-radius: 8px; border: 1px solid #eee; line-height: 1.7; }
+        
+        /* [폰트 수정] 분석 내용은 "맑은 고딕" 적용 */
+        pre { 
+            white-space: pre-wrap; 
+            font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; 
+            font-size: 15px; 
+            line-height: 1.8; 
+            padding: 15px; 
+            background: #fdfdfd; 
+            border-radius: 8px; 
+            border: 1px solid #eee; 
+            flex: 1; 
+            overflow-y: auto; 
+            color: #212529;
+        }
+
+        .rec-list { flex: 1; overflow-y: auto; }
+        .rec-item { padding: 15px; border: 1px solid #dee2e6; border-radius: 10px; margin-bottom: 10px; cursor: pointer; background: #fff; }
+        .rec-item:hover { border-color: #28a745; background: #f8fff9; }
         .filter-bar { display: flex; gap: 10px; margin-bottom: 15px; background: #f1f3f5; padding: 15px; border-radius: 10px; }
-        .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); display: flex; justify-content: center; align-items: center; z-index: 2000; font-weight: bold; }
+        .badge-grade { background: #007bff; color: white; padding: 2px 8px; border-radius: 12px; font-weight: bold; }
+        .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); display: flex; justify-content: center; align-items: center; z-index: 2000; font-weight: bold; color: #007bff; }
     </style>
 </head>
 <body>
@@ -37,7 +61,6 @@
             const [aiAnalysis, setAiAnalysis] = useState("");
             const [loading, setLoading] = useState(false);
             
-            // 필터 상태
             const [marketFilter, setMarketFilter] = useState("");
             const [sectorFilter, setSectorFilter] = useState("");
             const [searchKeyword, setSearchKeyword] = useState("");
@@ -53,12 +76,10 @@
 
             useEffect(() => { loadData(); }, []);
 
-            // 비교 분석 실행
             const runComparison = async () => {
                 const pItems = data.portfolio.holdings.filter(h => selectedPortfolio.includes(h.code));
                 const lItems = data.static.A.filter(a => selectedLeaderboard.includes(a.ticker)).map(a => ({code: a.ticker, name: a.name}));
-
-                if (pItems.length === 0 && lItems.length === 0) return alert("분석할 종목을 선택하세요.");
+                if (pItems.length === 0 && lItems.length === 0) return alert("종목을 선택해주세요.");
 
                 setLoading(true);
                 const res = await fetch(`${API_BASE}/deep-analyze`, {
@@ -75,11 +96,10 @@
                 const blob = new Blob([aiAnalysis], { type: "text/plain" });
                 const a = document.createElement("a");
                 a.href = URL.createObjectURL(blob);
-                a.download = `Comparison_Report_${new Date().toISOString().slice(0,10)}.txt`;
+                a.download = `ETF_Alpha_Report_${new Date().toISOString().slice(0,10)}.txt`;
                 a.click();
             };
 
-            // 필터링 로직
             const filteredLeaderboard = useMemo(() => {
                 let list = data.static.A || [];
                 if (marketFilter === "KOSPI") list = list.filter(i => (i.name || "").includes("200") || (i.name || "").includes("코스피"));
@@ -91,73 +111,81 @@
 
             return (
                 <div className="container">
-                    {loading && <div className="loading-overlay">⏳ Gemini 비교 분석 중...</div>}
+                    {loading && <div className="loading-overlay">⏳ Gemini 통합 분석 엔진 가동 중...</div>}
 
                     {/* 내 포트폴리오 */}
                     <section className="card">
                         <div className="section-title">
                             <span>💼 내 자산 포트폴리오</span>
-                            <button className="btn btn-warning" onClick={() => loadData()}>🔄 다시 불러오기</button>
+                            <button className="btn btn-warning" onClick={() => loadData()}>🔄 새로고침</button>
                         </div>
                         <table>
                             <thead>
                                 <tr>
-                                    <th>선택</th><th>종목명(코드)</th><th>단가</th><th>수익률</th>
+                                    <th>체크</th><th>종목명(코드)</th><th>단가</th><th>수익률</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {data.portfolio.holdings.map((h, i) => (
-                                    <tr key={i}>
+                                    <tr key={i} style={{background: selectedPortfolio.includes(h.code) ? '#f0f7ff' : 'transparent'}}>
                                         <td><input type="checkbox" onChange={() => setSelectedPortfolio(prev => prev.includes(h.code) ? prev.filter(c=>c!==h.code) : [...prev, h.code])} /></td>
                                         <td><strong>{h.name}</strong>({h.code})</td>
-                                        <td>{Number(h.avg_price).toLocaleString()}</td>
-                                        <td style={{color: (h.manual_price/h.avg_price)>=1?'red':'blue'}}>{((h.manual_price/h.avg_price - 1)*100).toFixed(2)}%</td>
+                                        <td>{Number(h.avg_price).toLocaleString()}원</td>
+                                        <td style={{fontWeight:'bold', color: (h.manual_price/h.avg_price)>=1?'red':'blue'}}>{((h.manual_price/h.avg_price - 1)*100).toFixed(2)}%</td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
                     </section>
 
-                    {/* 분석 창 */}
+                    {/* [수정] 분석 및 추천 영역 대칭 배치 */}
                     <div className="grid-ai">
                         <section className="card">
-                            <div className="section-title">🔍 Gemini 비교 분석 & 전략</div>
+                            <div className="section-title">🔍 Gemini 비교 분석 리포트</div>
                             <div style={{display:'flex', gap:'10px', marginBottom:'15px'}}>
-                                <button className="btn btn-success" onClick={runComparison}>⚖️ 포트폴리오 vs 리더보드 비교 분석</button>
-                                <button className="btn btn-primary" onClick={downloadReport}>📄 리포트 다운로드</button>
+                                <button className="btn btn-success" onClick={runComparison}>⚖️ 비교 분석 실행</button>
+                                <button className="btn btn-primary" onClick={downloadReport}>📄 리포트 저장</button>
                             </div>
-                            <pre>{aiAnalysis || "양쪽 테이블에서 종목을 선택한 후 비교 분석 버튼을 눌러주세요."}</pre>
+                            <pre>{aiAnalysis || "양쪽 테이블에서 종목을 체크한 후 분석 버튼을 눌러주세요."}</pre>
+                        </section>
+                        <section className="card">
+                            <div className="section-title">🌟 AI 추천 종목 리스트</div>
+                            <div className="rec-list">
+                                {/* 추천 종목 추출 로직 생략(기존 유지 가능), 여기서는 수동 추천 예시 */}
+                                <p style={{fontSize:'12px', color:'#666'}}>리포트 하단의 추천 종목이 여기에 표시됩니다.</p>
+                            </div>
                         </section>
                     </div>
 
                     {/* ETF 리더보드 */}
-                    <section className="card">
-                        <div className="section-title">🚀 ETF 리더보드 (시장/섹터 구분)</div>
+                    <section className="card" style={{marginTop:'25px'}}>
+                        <div className="section-title">🚀 ETF 리더보드 (통합 퀀트 데이터)</div>
                         <div className="filter-bar">
                             <select onChange={e=>setMarketFilter(e.target.value)}>
                                 <option value="">전체 시장</option><option value="KOSPI">KOSPI</option><option value="KOSDAQ">KOSDAQ</option>
                             </select>
                             <select onChange={e=>setSectorFilter(e.target.value)}>
                                 <option value="">전체 섹터</option>
-                                <option value="반도체">반도체</option><option value="2차전지">2차전지</option><option value="바이오">바이오</option><option value="미국">미국지수</option>
+                                <option value="반도체">반도체</option><option value="2차전지">2차전지</option><option value="미국">미국지수</option>
                             </select>
-                            <input placeholder="종목 검색..." onChange={e=>setSearchKeyword(e.target.value)} />
+                            <input placeholder="종목명 검색" onChange={e=>setSearchKeyword(e.target.value)} style={{width:'250px'}} />
                         </div>
                         <table>
                             <thead>
                                 <tr>
-                                    <th>선택</th><th>종목명(코드)</th><th>등급</th><th>Alpha</th><th>RVOL</th><th>분석</th>
+                                    <th>체크</th><th>종목명(코드)</th><th>현재가</th><th>등급</th><th>Alpha(1M)</th><th>RVOL</th><th>1주%</th><th>퀀트 인사이트</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {filteredLeaderboard.slice(0, 50).map((item, i) => (
-                                    <tr key={i}>
+                                    <tr key={i} style={{background: selectedLeaderboard.includes(item.ticker) ? '#fff9e6' : 'transparent'}}>
                                         <td><input type="checkbox" onChange={() => setSelectedLeaderboard(prev => prev.includes(item.ticker) ? prev.filter(c=>c!==item.ticker) : [...prev, item.ticker])} /></td>
-                                        <td style={{textAlign:'left'}}>{item.name}({item.ticker})</td>
-                                        <td><span style={{background:'#007bff', color:'#fff', padding:'2px 8px', borderRadius:'10px'}}>{item.grade_score}</span></td>
-                                        <td style={{color:item.alpha_1m>0?'red':'blue'}}>{item.alpha_1m}%</td>
-                                        <td>{item.rvol}배</td>
-                                        <td><button className="btn-primary" style={{fontSize:'10px'}} onClick={()=>runComparison(item)}>단독분석</button></td>
+                                        <td style={{textAlign:'left'}}><strong>{item.name}</strong>({item.ticker})</td>
+                                        <td>{Number(item.price_curr || 0).toLocaleString()}원</td>
+                                        <td><span className="badge-grade">{item.grade_score}</span></td>
+                                        <td style={{color:item.alpha_1m>0?'red':'blue', fontWeight:'bold'}}>{item.alpha_1m}%</td>
+                                        <td>{item.rvol}배</td><td>{item.return_1w}%</td>
+                                        <td style={{fontSize:'10px', color:'#666', textAlign:'left'}}>{item.description}</td>
                                     </tr>
                                 ))}
                             </tbody>
