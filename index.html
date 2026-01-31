@@ -2,33 +2,32 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>ETF ALPHA MATRIX v86.2</title>
+    <title>ETF ALPHA MATRIX v86.3</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
     <style>
-        body { margin: 0; font-family: 'Pretendard', sans-serif; background: #f4f7f9; color: #333; }
+        body { margin: 0; font-family: 'Pretendard', sans-serif; background: #f8f9fa; color: #333; }
         .container { padding: 25px; max-width: 1600px; margin: 0 auto; }
-        .card { background: #fff; border: 1px solid #e1e4e8; border-radius: 12px; padding: 20px; margin-bottom: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+        .card { background: #fff; border: 1px solid #e9ecef; border-radius: 12px; padding: 20px; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         .section-title { font-size: 19px; font-weight: 800; color: #007bff; margin-bottom: 18px; display: flex; align-items: center; gap: 10px; }
         table { width: 100%; border-collapse: collapse; font-size: 11px; }
-        th { background: #2d3436; color: #fff; padding: 12px; position: sticky; top: 0; z-index: 10; }
-        td { padding: 10px; border-bottom: 1px solid #f1f1f1; text-align: center; }
-        input, select { padding: 7px; border: 1px solid #dfe6e9; border-radius: 5px; font-size: 11px; outline: none; }
-        .btn { padding: 9px 18px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; font-size: 12px; transition: 0.2s; }
-        .btn:hover { opacity: 0.8; }
+        th { background: #343a40; color: #fff; padding: 12px; position: sticky; top: 0; z-index: 10; }
+        td { padding: 10px; border-bottom: 1px solid #f1f3f5; text-align: center; }
+        input, select { padding: 8px; border: 1px solid #ced4da; border-radius: 6px; font-size: 11px; outline: none; transition: 0.2s; }
+        input:focus { border-color: #007bff; box-shadow: 0 0 0 2px rgba(0,123,255,0.1); }
+        .btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; font-size: 12px; transition: 0.3s; }
         .btn-primary { background: #007bff; color: #fff; }
-        .btn-success { background: #2ecc71; color: #fff; }
-        .btn-gemini { background: #6c5ce7; color: #fff; padding: 5px 10px; border-radius: 4px; font-size: 10px; }
-        .btn-danger { background: #ff7675; color: #fff; font-size: 10px; padding: 5px 10px; }
+        .btn-success { background: #28a745; color: #fff; }
+        .btn-gemini { background: #6f42c1; color: #fff; padding: 6px 12px; border-radius: 5px; font-size: 10px; font-weight: bold; }
+        .btn-danger { background: #dc3545; color: #fff; font-size: 10px; padding: 6px 12px; border-radius: 5px; }
         .grid-ai { display: grid; grid-template-columns: 1.6fr 1fr; gap: 25px; }
-        .rec-item { padding: 14px; border: 1px solid #edf2f7; border-radius: 10px; margin-bottom: 12px; cursor: pointer; background: #fff; }
-        .rec-item:hover { border-color: #2ecc71; background: #f0fff4; transform: translateY(-2px); }
-        pre { white-space: pre-wrap; word-break: break-all; font-family: inherit; font-size: 14px; line-height: 1.7; color: #2d3436; padding: 15px; background: #fff; border-radius: 8px; border: 1px solid #eee; }
-        .filter-group { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #eee; }
-        .badge-grade { background: #007bff; color: white; padding: 2px 8px; border-radius: 12px; font-weight: bold; }
-        .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.85); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; font-weight: bold; color: #007bff; }
+        .rec-item { padding: 15px; border: 1px solid #dee2e6; border-radius: 10px; margin-bottom: 12px; cursor: pointer; background: #fff; transition: 0.2s; }
+        .rec-item:hover { border-color: #28a745; background: #f8fff9; transform: translateY(-2px); }
+        pre { white-space: pre-wrap; word-break: break-all; font-family: inherit; font-size: 14px; line-height: 1.8; color: #212529; padding: 15px; background: #fdfdfd; border-radius: 8px; border: 1px solid #eee; }
+        .filter-group { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; background: #f1f3f5; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #dee2e6; }
+        .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 2000; font-weight: bold; color: #007bff; }
     </style>
 </head>
 <body>
@@ -40,10 +39,10 @@
             const [isAuth, setIsAuth] = useState(false);
             const [pass, setPass] = useState("");
             if (!isAuth) return (
-                <div style={{height:'100vh', display:'flex', justifyContent:'center', alignItems:'center', background:'#1e272e'}}>
-                    <div style={{background:'#fff', padding:'50px', borderRadius:'24px', textAlign:'center', boxShadow:'0 10px 40px rgba(0,0,0,0.3)'}}>
-                        <h2 style={{color:'#007bff', marginBottom:'25px'}}>📡 ETF ALPHA MATRIX v86.2</h2>
-                        <input type="password" value={pass} onChange={(e)=>setPass(e.target.value)} onKeyPress={(e)=>e.key==='Enter' && pass==='sd*11070823' && setIsAuth(true)} style={{padding:'15px', width:'250px', textAlign:'center', border:'2px solid #eee', borderRadius:'12px', fontSize:'16px'}} placeholder="Password" />
+                <div style={{height:'100vh', display:'flex', justifyContent:'center', alignItems:'center', background:'#121212'}}>
+                    <div style={{background:'#fff', padding:'50px', borderRadius:'24px', textAlign:'center'}}>
+                        <h2 style={{color:'#007bff', marginBottom:'25px'}}>📡 ETF ALPHA MATRIX v86.3</h2>
+                        <input type="password" value={pass} onChange={(e)=>setPass(e.target.value)} onKeyPress={(e)=>e.key==='Enter' && pass==='sd*11070823' && setIsAuth(true)} style={{padding:'15px', width:'250px', textAlign:'center', border:'2px solid #ddd', borderRadius:'12px', fontSize:'16px'}} placeholder="비밀번호 입력" />
                     </div>
                 </div>
             );
@@ -57,7 +56,7 @@
             const [recommendedStocks, setRecommendedStocks] = useState([]);
             const [loading, setLoading] = useState(false);
             
-            // 필터 상태
+            // 필터링 상태
             const [marketFilter, setMarketFilter] = useState("");
             const [sectorFilter, setSectorFilter] = useState("");
             const [searchKeyword, setSearchKeyword] = useState("");
@@ -67,24 +66,31 @@
             const API_BASE = "https://etf-data-collector.onrender.com/api";
 
             const init = async () => {
+                setLoading(true);
                 try {
-                    setLoading(true);
                     const res = await fetch(`${API_BASE}/init`);
                     const result = await res.json();
                     setData(result);
-                } catch(e) { console.error("초기 데이터 로드 실패", e); }
+                } catch(e) { console.error("데이터 로드 실패", e); }
                 finally { setLoading(false); }
             };
             useEffect(() => { init(); }, []);
 
-            // 분석 실행 함수 (핵심!)
+            // --- [핵심] 분석 실행 및 데이터 전송 로직 ---
             const runAnalysis = async (item = null) => {
                 setLoading(true);
                 try {
-                    const payload = item 
-                        ? { code: (item.ticker || item.code || ""), name: (item.name || "추천종목") } 
-                        : { portfolio: data.portfolio.holdings, type: "PORTFOLIO" };
-                    
+                    // 서버로 보낼 때 ticker 또는 code 필드를 명확하게 문자열로 변환
+                    const payload = item ? {
+                        code: String(item.ticker || item.code || "").replace(/'/g, "").trim(),
+                        name: String(item.name || "미상 종목")
+                    } : {
+                        portfolio: data.portfolio.holdings,
+                        type: "PORTFOLIO"
+                    };
+
+                    console.log("전송 데이터:", payload); // 디버깅용
+
                     const res = await fetch(`${API_BASE}/deep-analyze`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
@@ -92,17 +98,20 @@
                     });
                     const result = await res.json();
                     setAiAnalysis(result.analysis);
-                } catch(e) { 
-                    alert("분석 중 에러가 발생했습니다: " + e.message);
-                } finally { setLoading(false); }
+                } catch(e) {
+                    alert("분석 요청 중 오류가 발생했습니다: " + e.message);
+                } finally {
+                    setLoading(false);
+                }
             };
 
+            // --- 포트폴리오 관리 (저장/수정/삭제) ---
             const savePortfolio = async (holdings) => {
                 await fetch(`${API_BASE}/portfolio/save`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({holdings}) });
             };
 
             const handleAddAsset = async () => {
-                if(!newAsset.name || !newAsset.code || !newAsset.purchase_date) return alert("필수 정보를 입력하세요.");
+                if(!newAsset.name || !newAsset.code) return alert("종목명과 코드는 필수입니다.");
                 const updated = [...data.portfolio.holdings, { ...newAsset, avg_price: Number(newAsset.avg_price), quantity: Number(newAsset.quantity), manual_price: Number(newAsset.manual_price || newAsset.avg_price) }];
                 setData({ ...data, portfolio: { holdings: updated } });
                 await savePortfolio(updated);
@@ -117,6 +126,7 @@
             };
 
             const handleDeleteAsset = async (i) => {
+                if(!confirm("삭제하시겠습니까?")) return;
                 const updated = data.portfolio.holdings.filter((_, idx) => idx !== i);
                 setData({...data, portfolio:{holdings:updated}});
                 await savePortfolio(updated);
@@ -129,13 +139,7 @@
                 setRecommendedStocks(extracted);
             };
 
-            const sectorKeywords = {
-                "반도체/AI": ["반도체", "HBM", "AI", "칩"],
-                "2차전지/배터리": ["2차전지", "배터리", "양극재"],
-                "금융/배당": ["금융", "은행", "배당", "가치"],
-                "바이오/헬스": ["바이오", "헬스케어", "제약"]
-            };
-
+            // 필터링 처리
             const filteredList = useMemo(() => {
                 let list = data.static.A || [];
                 const ex = excludeKeywords.split(',').map(k => k.trim()).filter(k => k);
@@ -144,93 +148,111 @@
                 if (marketFilter === "KOSDAQ") list = list.filter(item => (item.name || "").includes("150") || (item.name || "").includes("코스닥"));
                 const query = searchKeyword || sectorFilter;
                 if (query) {
-                    const keys = sectorKeywords[query] || [query];
-                    list = list.filter(item => keys.some(k => (item.name || "").includes(k) || (item.description || "").includes(k)));
+                    list = list.filter(item => (item.name || "").includes(query) || (item.description || "").includes(query));
                 }
                 return list;
             }, [data.static.A, marketFilter, sectorFilter, searchKeyword, excludeKeywords]);
 
             return (
                 <div className="container">
-                    {loading && <div className="loading-overlay">⏳ Gemini가 데이터를 분석 중입니다...</div>}
+                    {loading && <div className="loading-overlay">⏳ 퀀트 엔진이 실시간 데이터를 분석 중입니다...</div>}
 
-                    {/* [1] 자산 관리 */}
+                    {/* [1] 자산 관리 섹션 */}
                     <section className="card" style={{borderTop: '6px solid #007bff'}}>
-                        <div className="section-title">💼 내 자산 포트폴리오 관리</div>
+                        <div className="section-title">💼 내 자산 포트폴리오 (자동 저장 시스템)</div>
                         <div style={{display:'flex', flexWrap:'wrap', gap:'10px', marginBottom:'20px', background:'#f8f9fa', padding:'15px', borderRadius:'10px'}}>
-                            <input placeholder="종목명" value={newAsset.name} onChange={e=>setNewAsset({...newAsset, name:e.target.value})} />
-                            <input placeholder="코드" value={newAsset.code} onChange={e=>setNewAsset({...newAsset, code:e.target.value})} />
+                            <input placeholder="종목명" value={newAsset.name} onChange={e=>setNewAsset({...newAsset, name:e.target.value})} style={{width:'150px'}} />
+                            <input placeholder="코드" value={newAsset.code} onChange={e=>setNewAsset({...newAsset, code:e.target.value})} style={{width:'100px'}} />
                             <input type="date" value={newAsset.purchase_date} onChange={e=>setNewAsset({...newAsset, purchase_date:e.target.value})} />
-                            <input type="number" placeholder="매입가" value={newAsset.avg_price} onChange={e=>setNewAsset({...newAsset, avg_price:e.target.value})} />
-                            <input type="number" placeholder="수량" value={newAsset.quantity} onChange={e=>setNewAsset({...newAsset, quantity:e.target.value})} />
-                            <button className="btn btn-primary" onClick={handleAddAsset}>+ 추가</button>
+                            <input type="number" placeholder="매입단가" value={newAsset.avg_price} onChange={e=>setNewAsset({...newAsset, avg_price:e.target.value})} style={{width:'100px'}} />
+                            <input type="number" placeholder="수량" value={newAsset.quantity} onChange={e=>setNewAsset({...newAsset, quantity:e.target.value})} style={{width:'80px'}} />
+                            <button className="btn btn-primary" onClick={handleAddAsset}>+ 포트폴리오 추가</button>
                         </div>
                         <table>
                             <thead>
-                                <tr><th>매수일자</th><th>현재일자</th><th>종목명(코드)</th><th>매입단가</th><th>수량</th><th>현재가(수정)</th><th>수익금</th><th>수익률</th><th>관리</th></tr>
+                                <tr><th>매수일</th><th>현재일</th><th>종목명(코드)</th><th>매입단가</th><th>수량</th><th>현재가(수정가능)</th><th>수익금</th><th>수익률</th><th>삭제</th></tr>
                             </thead>
                             <tbody>
-                                {data.portfolio.holdings.map((h, i) => (
-                                    <tr key={i}>
-                                        <td><input type="date" value={h.purchase_date} onChange={e=>updateAssetField(i, 'purchase_date', e.target.value)} /></td>
-                                        <td>{todayDate}</td>
-                                        <td><strong>{h.name}({h.code})</strong></td>
-                                        <td><input type="number" value={h.avg_price} onChange={e=>updateAssetField(i, 'avg_price', e.target.value)} style={{width:'80px'}} /></td>
-                                        <td><input type="number" value={h.quantity} onChange={e=>updateAssetField(i, 'quantity', e.target.value)} style={{width:'50px'}} /></td>
-                                        <td><input type="number" value={h.manual_price} onChange={e=>updateAssetField(i, 'manual_price', e.target.value)} style={{width:'90px', border:'1px solid #007bff'}} /></td>
-                                        <td style={{color: (h.manual_price-h.avg_price)>=0?'red':'blue'}}>{((h.manual_price-h.avg_price)*h.quantity).toLocaleString()}</td>
-                                        <td style={{color: (h.manual_price-h.avg_price)>=0?'red':'blue'}}>{((h.manual_price/h.avg_price - 1)*100).toFixed(2)}%</td>
-                                        <td><button className="btn-danger" onClick={()=>handleDeleteAsset(i)}>삭제</button></td>
-                                    </tr>
-                                ))}
+                                {data.portfolio.holdings.map((h, i) => {
+                                    const profit = (h.manual_price - h.avg_price) * h.quantity;
+                                    const rate = ((h.manual_price/h.avg_price - 1)*100).toFixed(2);
+                                    return (
+                                        <tr key={i}>
+                                            <td><input type="date" value={h.purchase_date} onChange={e=>updateAssetField(i, 'purchase_date', e.target.value)} /></td>
+                                            <td>{todayDate}</td>
+                                            <td style={{fontWeight:'bold'}}>{h.name}({h.code})</td>
+                                            <td><input type="number" value={h.avg_price} onChange={e=>updateAssetField(i, 'avg_price', e.target.value)} style={{width:'90px'}} /></td>
+                                            <td><input type="number" value={h.quantity} onChange={e=>updateAssetField(i, 'quantity', e.target.value)} style={{width:'60px'}} /></td>
+                                            <td><input type="number" value={h.manual_price} onChange={e=>updateAssetField(i, 'manual_price', e.target.value)} style={{width:'100px', border:'1px solid #007bff'}} /></td>
+                                            <td style={{color: profit>=0?'red':'blue', fontWeight:'bold'}}>{profit.toLocaleString()}</td>
+                                            <td style={{color: profit>=0?'red':'blue', fontWeight:'bold'}}>{rate}%</td>
+                                            <td><button className="btn-danger" onClick={()=>handleDeleteAsset(i)}>삭제</button></td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </section>
 
-                    {/* [2] Gemini 분석 */}
+                    {/* [2] Gemini 분석 섹션 */}
                     <div className="grid-ai">
                         <section className="card">
-                            <div className="section-title">🔍 Gemini 인텔리전스 분석</div>
-                            <div style={{display:'flex', gap:'10px', marginBottom:'15px'}}>
-                                <button className="btn btn-success" onClick={() => runAnalysis()}>보유종목 분석 실행</button>
+                            <div className="section-title">🔍 Gemini 인텔리전스 (A+C+E 수급 분석)</div>
+                            <div style={{display:'flex', gap:'12px', marginBottom:'15px'}}>
+                                <button className="btn btn-success" onClick={() => runAnalysis()}>보유종목 전체 분석</button>
                                 <button className="btn btn-primary" onClick={extractRecs}>추천종목 리스트 추출 ➔</button>
                             </div>
-                            <pre>{aiAnalysis || "분석 버튼을 눌러주세요."}</pre>
+                            <pre>{aiAnalysis || "분석 버튼을 눌러주세요. CSV_A, C, E 데이터와 실시간 수급을 결합합니다."}</pre>
                         </section>
                         <section className="card">
-                            <div className="section-title">🌟 AI 추천 종목 리스트</div>
-                            <div style={{minHeight:'400px'}}>
+                            <div className="section-title">🌟 AI 추천 종목 (더블클릭 시 상세분석)</div>
+                            <div style={{minHeight:'450px'}}>
                                 {recommendedStocks.map((s, idx) => (
                                     <div key={idx} className="rec-item" onDoubleClick={()=>runAnalysis(s)}>
-                                        <strong>{s.name}</strong> ({s.code})
+                                        <strong>{s.name}</strong> <span style={{fontSize:'12px', color:'#999'}}>({s.code})</span>
                                     </div>
                                 ))}
                             </div>
                         </section>
                     </div>
 
-                    {/* [3] 리더보드 */}
+                    {/* [3] ETF 리더보드 섹션 */}
                     <section className="card">
-                        <div className="section-title">🚀 ETF 리더보드 (A_Analysis)</div>
+                        <div className="section-title">🚀 ETF 리더보드 (데이터 필터링 시스템)</div>
                         <div className="filter-group">
-                            <input value={excludeKeywords} onChange={e=>setExcludeKeywords(e.target.value)} placeholder="제외 키워드" style={{width:'200px'}} />
-                            <select onChange={e=>setMarketFilter(e.target.value)}><option value="">전체 시장</option><option value="KOSPI">KOSPI</option><option value="KOSDAQ">KOSDAQ</option></select>
-                            <select onChange={e=>setSectorFilter(e.target.value)}><option value="">전체 섹터</option>{Object.keys(sectorKeywords).map(k=><option key={k} value={k}>{k}</option>)}</select>
-                            <input placeholder="직접 검색" value={searchKeyword} onChange={e=>setSearchKeyword(e.target.value)} style={{width:'150px'}} />
+                            <div>
+                                <label style={{fontSize:'11px', fontWeight:'bold', display:'block', marginBottom:'4px'}}>🚫 제외 키워드</label>
+                                <input value={excludeKeywords} onChange={e=>setExcludeKeywords(e.target.value)} style={{width:'220px'}} />
+                            </div>
+                            <div>
+                                <label style={{fontSize:'11px', fontWeight:'bold', display:'block', marginBottom:'4px'}}>🏛️ 시장 분류</label>
+                                <select value={marketFilter} onChange={e=>setMarketFilter(e.target.value)}>
+                                    <option value="">전체 시장</option>
+                                    <option value="KOSPI">KOSPI 계열</option>
+                                    <option value="KOSDAQ">KOSDAQ 계열</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style={{fontSize:'11px', fontWeight:'bold', display:'block', marginBottom:'4px'}}>🔍 검색/섹터</label>
+                                <input placeholder="예: 반도체, 2차전지" value={searchKeyword} onChange={e=>setSearchKeyword(e.target.value)} style={{width:'180px'}} />
+                            </div>
+                            <div style={{marginLeft:'auto', fontWeight:'bold', color:'#007bff'}}>필터링 결과: {filteredList.length}건</div>
                         </div>
                         <table>
                             <thead>
-                                <tr><th>종목명(코드)</th><th>현재가</th><th>등급</th><th>Alpha</th><th>RVOL</th><th>상세 분석</th></tr>
+                                <tr><th>종목명(코드)</th><th>현재가</th><th>등급</th><th>Alpha(1M)</th><th>RVOL</th><th>1주%</th><th>인사이트</th><th>상세분석</th></tr>
                             </thead>
                             <tbody>
                                 {filteredList.slice(0, 50).map((item, i) => (
                                     <tr key={i}>
                                         <td style={{textAlign:'left', fontWeight:'bold'}}>{item.name}({item.ticker})</td>
                                         <td>{Number(item.price_curr || 0).toLocaleString()}</td>
-                                        <td><span className="badge-grade">{item.grade_score}</span></td>
-                                        <td>{item.alpha_1m}%</td>
+                                        <td><span style={{background:'#007bff', color:'#fff', padding:'2px 8px', borderRadius:'10px'}}>{item.grade_score}</span></td>
+                                        <td style={{color: (item.alpha_1m||0)>0?'red':'blue'}}>{item.alpha_1m}%</td>
                                         <td>{item.rvol}배</td>
-                                        <td><button className="btn-gemini" onClick={() => runAnalysis(item)}>Gemini 분석</button></td>
+                                        <td>{item.return_1w}%</td>
+                                        <td style={{textAlign:'left', fontSize:'10px', color:'#666'}}>{item.description}</td>
+                                        <td><button className="btn-gemini" onClick={() => runAnalysis(item)}>Gemini</button></td>
                                     </tr>
                                 ))}
                             </tbody>
