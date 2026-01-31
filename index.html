@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>ETF ALPHA MATRIX v85.8</title>
+    <title>ETF ALPHA MATRIX v85.9</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -24,6 +24,7 @@
         .rec-item { padding: 12px; border: 1px solid #e9ecef; border-radius: 8px; margin-bottom: 10px; cursor: pointer; background: #fff; }
         .rec-item:hover { border-color: #28a745; background: #f0fff4; }
         pre { white-space: pre-wrap; word-break: break-all; font-family: inherit; font-size: 13px; line-height: 1.6; color: #444; }
+        .filter-group { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; background: #f1f3f5; padding: 12px; border-radius: 8px; margin-bottom: 15px; }
     </style>
 </head>
 <body>
@@ -37,7 +38,7 @@
             if (!isAuth) return (
                 <div style={{height:'100vh', display:'flex', justifyContent:'center', alignItems:'center', background:'#121212'}}>
                     <div style={{background:'#fff', padding:'40px', borderRadius:'20px', textAlign:'center'}}>
-                        <h2 style={{color:'#007bff'}}>📡 SYSTEM GATE v85.8</h2>
+                        <h2 style={{color:'#007bff'}}>📡 SYSTEM GATE v85.9</h2>
                         <input type="password" value={pass} onChange={(e)=>setPass(e.target.value)} onKeyPress={(e)=>e.key==='Enter' && pass==='sd*11070823' && setIsAuth(true)} style={{padding:'12px', width:'220px', textAlign:'center', border:'1px solid #ddd', borderRadius:'8px'}} placeholder="Password" />
                     </div>
                 </div>
@@ -50,9 +51,13 @@
             const [newAsset, setNewAsset] = useState({name:'', code:'', avg_price:'', quantity:'', manual_price:'', purchase_date:''});
             const [aiAnalysis, setAiAnalysis] = useState("");
             const [recommendedStocks, setRecommendedStocks] = useState([]);
+            
+            // 필터 상태
             const [marketFilter, setMarketFilter] = useState("");
+            const [sectorFilter, setSectorFilter] = useState("");
+            const [excludeKeywords, setExcludeKeywords] = useState("레버리지, 선물, 인버스"); // 제외 키워드 초기값
+            
             const [loading, setLoading] = useState(false);
-
             const todayDate = new Date().toISOString().split('T')[0];
             const API_BASE = "https://etf-data-collector.onrender.com/api";
 
@@ -118,13 +123,32 @@
                 setLoading(false);
             };
 
-            // CSV_A_Analysis 헤더에 맞춘 필터링 및 데이터 가공
+            // --- [핵심] 지능형 필터링 로직 ---
+            const sectorKeywords = ["반도체", "2차전지", "바이오", "헬스케어", "금융", "에너지", "IT", "소비재", "배터리", "테크"];
+
             const filteredEtfList = useMemo(() => {
                 let list = data.static.A || [];
-                if(marketFilter === "KOSPI") list = list.filter(item => (item.ticker || "").startsWith('0') || (item.name || "").includes("KOSPI"));
-                if(marketFilter === "KOSDAQ") list = list.filter(item => (item.name || "").includes("KOSDAQ"));
+
+                // 1. 제외 키워드 필터링
+                const exKeywords = excludeKeywords.split(',').map(k => k.trim()).filter(k => k);
+                if (exKeywords.length > 0) {
+                    list = list.filter(item => !exKeywords.some(key => (item.name || "").includes(key)));
+                }
+
+                // 2. 시장 분류 (Heuristic: 이름 기반)
+                if (marketFilter === "KOSPI") {
+                    list = list.filter(item => (item.name || "").includes("200") || (item.name || "").includes("코스피") || (item.name || "").includes("K200"));
+                } else if (marketFilter === "KOSDAQ") {
+                    list = list.filter(item => (item.name || "").includes("150") || (item.name || "").includes("코스닥") || (item.name || "").includes("KQ"));
+                }
+
+                // 3. 섹터 분류 (Heuristic: 이름 및 설명 기반)
+                if (sectorFilter) {
+                    list = list.filter(item => (item.name || "").includes(sectorFilter) || (item.description || "").includes(sectorFilter));
+                }
+
                 return list;
-            }, [data.static.A, marketFilter]);
+            }, [data.static.A, marketFilter, sectorFilter, excludeKeywords]);
 
             return (
                 <div className="container">
@@ -132,11 +156,11 @@
                     <section className="card" style={{borderTop: '5px solid #007bff'}}>
                         <div className="section-title">💼 내 자산 포트폴리오 관리</div>
                         <div style={{display:'flex', flexWrap:'wrap', gap:'8px', marginBottom:'20px', background:'#f1f3f5', padding:'15px', borderRadius:'8px'}}>
-                            <input placeholder="종목명" value={newAsset.name} onChange={e=>setNewAsset({...newAsset, name:e.target.value})} />
-                            <input placeholder="코드" value={newAsset.code} onChange={e=>setNewAsset({...newAsset, code:e.target.value})} />
+                            <input placeholder="종목명" value={newAsset.name} onChange={e=>setNewAsset({...newAsset, name:e.target.value})} style={{width:'130px'}} />
+                            <input placeholder="코드" value={newAsset.code} onChange={e=>setNewAsset({...newAsset, code:e.target.value})} style={{width:'80px'}} />
                             <input type="date" value={newAsset.purchase_date} onChange={e=>setNewAsset({...newAsset, purchase_date:e.target.value})} />
-                            <input type="number" placeholder="매입단가" value={newAsset.avg_price} onChange={e=>setNewAsset({...newAsset, avg_price:e.target.value})} />
-                            <input type="number" placeholder="수량" value={newAsset.quantity} onChange={e=>setNewAsset({...newAsset, quantity:e.target.value})} />
+                            <input type="number" placeholder="매입단가" value={newAsset.avg_price} onChange={e=>setNewAsset({...newAsset, avg_price:e.target.value})} style={{width:'100px'}} />
+                            <input type="number" placeholder="수량" value={newAsset.quantity} onChange={e=>setNewAsset({...newAsset, quantity:e.target.value})} style={{width:'70px'}} />
                             <button className="btn btn-primary" onClick={handleAddAsset}>+ 종목 추가</button>
                         </div>
                         <table>
@@ -151,7 +175,7 @@
                                             <td>{h.purchase_date}</td><td>{todayDate}</td>
                                             <td style={{fontWeight:'bold'}}>{h.name}({h.code})</td>
                                             <td>{Number(h.avg_price).toLocaleString()}</td><td>{h.quantity}</td>
-                                            <td><input type="number" value={h.manual_price} onChange={(e) => handlePriceChange(i, e.target.value)} style={{width:'85px', textAlign:'center'}} /></td>
+                                            <td><input type="number" value={h.manual_price} onChange={(e) => handlePriceChange(i, e.target.value)} style={{width:'85px', textAlign:'center', border:'1px solid #007bff'}} /></td>
                                             <td style={{color: profit>=0?'red':'blue'}}>{profit.toLocaleString()}</td>
                                             <td style={{fontWeight:'bold', color: profit>=0?'red':'blue'}}>{((h.manual_price/h.avg_price - 1)*100).toFixed(2)}%</td>
                                             <td><button className="btn-danger" onClick={()=>handleDeleteAsset(i)}>삭제</button></td>
@@ -182,16 +206,33 @@
                         </section>
                     </div>
 
-                    {/* [3] ETF 리스트 섹션 (CSV_A_Analysis 헤더 맵핑) */}
+                    {/* [3] ETF 리더보드 (지능형 필터링 추가) */}
                     <section className="card">
-                        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'15px'}}>
-                            <div className="section-title" style={{marginBottom:0}}>🚀 ETF 리더보드 (A_Analysis)</div>
-                            <select onChange={e=>setMarketFilter(e.target.value)}>
-                                <option value="">시장 전체</option>
-                                <option value="KOSPI">KOSPI 계열</option>
-                                <option value="KOSDAQ">KOSDAQ 계열</option>
-                            </select>
+                        <div className="section-title">🚀 ETF 리더보드 (고급 필터링)</div>
+                        
+                        <div className="filter-group">
+                            <div>
+                                <label style={{fontSize:'11px', fontWeight:'bold'}}>🚫 제외 키워드: </label>
+                                <input value={excludeKeywords} onChange={e=>setExcludeKeywords(e.target.value)} style={{width:'250px'}} placeholder="쉼표로 구분 (예: 선물, 레버리지)" />
+                            </div>
+                            <div>
+                                <label style={{fontSize:'11px', fontWeight:'bold'}}>🏛️ 시장: </label>
+                                <select value={marketFilter} onChange={e=>setMarketFilter(e.target.value)}>
+                                    <option value="">전체 시장</option>
+                                    <option value="KOSPI">KOSPI (200계열)</option>
+                                    <option value="KOSDAQ">KOSDAQ (150계열)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style={{fontSize:'11px', fontWeight:'bold'}}>📂 섹터: </label>
+                                <select value={sectorFilter} onChange={e=>setSectorFilter(e.target.value)}>
+                                    <option value="">전체 섹터</option>
+                                    {sectorKeywords.map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                            </div>
+                            <div style={{fontSize:'11px', color:'#666', marginLeft:'auto'}}>검색 결과: <strong>{filteredEtfList.length}</strong>건</div>
                         </div>
+
                         <table>
                             <thead>
                                 <tr>
