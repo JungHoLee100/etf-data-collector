@@ -107,7 +107,7 @@ def run():
             if grade == 'F' and total_s < 5: continue
 
             analysis_rows.append({
-                'ticker': f"'{str(row['ticker']).zfill(6)}'",
+                'ticker': str(row['ticker']).zfill(6),
                 'name': row['name'],
                 'price_curr': int(p_curr),
                 'change_1d': round(chg_1d, 2),
