@@ -53,17 +53,24 @@ async def deep_analyze(req: Request):
     try:
         raw_info = await req.json()
         
-        # [수정 포인트] 데이터가 없으면 "None" 대신 빈 문자열("")을 기본값으로 설정
-        # 여러 종류의 변수명(code, ticker, 종목코드)을 모두 체크합니다.
-        target_code = str(raw_info.get("code") or raw_info.get("ticker") or raw_info.get("종목코드") or "").replace("'", "").strip()
-        target_name = str(raw_info.get("name") or raw_info.get("종목명") or "분석 대상")
+        # [1] 분석 모드 판별 (개별 종목 vs 포트폴리오 전체)
+        is_portfolio = raw_info.get("type") == "PORTFOLIO"
+        holdings = raw_info.get("portfolio", [])
 
-        # 만약 코드가 비어있다면 분석을 중단하고 안내 메시지 반환
-        if not target_code or target_code == "":
-            return {"analysis": "분석할 종목 코드가 선택되지 않았습니다. 리스트에서 종목을 다시 선택해주세요."}
+        # 분석할 티커 리스트 추출
+        if is_portfolio:
+            target_tickers = [str(h.get("code") or "").strip() for h in holdings if h.get("code")]
+            target_name = "내 포트폴리오 전체"
+        else:
+            code = str(raw_info.get("code") or "").replace("'", "").strip()
+            target_tickers = [code] if code else []
+            target_name = str(raw_info.get("name") or "분석 대상")
 
+        if not target_tickers:
+            return {"analysis": "분석할 종목이 없습니다. 포트폴리오에 종목을 추가하거나 리스트를 선택해주세요."}
+
+        # [2] CSV 데이터 로드 (표준 쉼표 형식 기반)
         base_url = f"https://raw.githubusercontent.com/{GITHUB_USER}/{REPO_NAME}/main"
-
         def get_clean_df(filename):
             try:
                 df = pd.read_csv(f"{base_url}/{filename}", encoding='utf-8-sig')
@@ -75,34 +82,43 @@ async def deep_analyze(req: Request):
         df_c = get_clean_df("CSV_C.csv")
         df_e = get_clean_df("CSV_E.csv")
 
-        def find_row(df, code):
-            if df.empty: return []
-            col = next((c for c in df.columns if c.lower() in ['ticker', 'code', '종목코드']), None)
-            if not col: return []
-            mask = df[col].astype(str).str.replace("'", "").str.strip() == code
-            return df[mask].to_dict(orient='records')
+        # [3] 여러 종목의 데이터를 한꺼번에 수집
+        all_data_a, all_data_e = [], []
+        ticker_col_a = next((c for c in df_a.columns if c.lower() in ['ticker', 'code']), 'ticker')
+        ticker_col_e = next((c for c in df_e.columns if c.lower() in ['ticker', 'code']), 'ticker')
 
-        data_a = find_row(df_a, target_code)
+        for t in target_tickers:
+            row_a = df_a[df_a[ticker_col_a].astype(str).str.contains(t)].to_dict(orient='records')
+            row_e = df_e[df_e[ticker_col_e].astype(str).str.contains(t)].to_dict(orient='records')
+            if row_a: all_data_a.extend(row_a)
+            if row_e: all_data_e.extend(row_e)
+
+        # [4] 실시간 B(수급) 및 C(매크로)
         data_c = df_c.head(5).to_dict(orient='records') if not df_c.empty else []
-        data_e = find_row(df_e, target_code)
+        try:
+            today = datetime.datetime.now().strftime("%Y%m%d")
+            df_b = stock.get_market_net_purchases_of_equities(today, today, "KOSPI")
+            b_summary = df_b.loc[['외국인', '기관합계'], ['순매수거래대금']].to_dict()
+        except: b_summary = "조회 지연"
 
-        # Gemini 프롬프트 강화: None 방지용 이름 강제 주입
+        # [5] Gemini 최종 종합 분석
         prompt = f"""
-        당신은 수석 퀀트 에널리스트입니다.
-        분석 종목: {target_name}({target_code})
+        당신은 정호님의 수석 퀀트 비서입니다. 분석 대상: {target_name}
         
-        [데이터 패키지]
-        - 모델 점수(A): {json.dumps(data_a, ensure_ascii=False)}
-        - 시장 매크로(C): {json.dumps(data_c, ensure_ascii=False)}
-        - 가감점 요인(E): {json.dumps(data_e, ensure_ascii=False)}
+        - 대상 종목 코드들: {target_tickers}
+        - 모델 점수(A): {json.dumps(all_data_a, ensure_ascii=False)}
+        - 매크로(C): {json.dumps(data_c, ensure_ascii=False)}
+        - 가감점(E): {json.dumps(all_data_e, ensure_ascii=False)}
+        - 수급(B): {json.dumps(b_summary, ensure_ascii=False)}
 
-        지시: 위 데이터를 기반으로 {target_name}의 투자 전략을 수립하세요. 
-        만약 데이터가 비어있다면, {target_name} 종목의 섹터 특성을 반영하여 전문적인 의견을 제시하세요.
-        'None' 또는 '데이터 없음'이라는 단어 사용을 지양하고 전략적 가이드를 제공하세요.
+        지시사항:
+        1. 제공된 A, E 데이터를 바탕으로 각 종목의 현재 상태를 요약하세요.
+        2. {target_name}의 구성이 현재 시장 매크로(C) 및 수급(B)과 잘 어울리는지 평가하세요.
+        3. '미상 종목'이나 '데이터 없음'이라는 말은 피하고, 제공된 수치를 최대한 활용해 전략을 제시하세요.
         """
 
         response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
         return {"analysis": response.text}
 
     except Exception as e:
-        return {"analysis": f"시스템 분석 중 오류 발생: {str(e)}"}
+        return {"analysis": f"🚨 시스템 연결 오류: {str(e)}"}
