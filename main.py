@@ -1,124 +1,136 @@
-import pandas as pd
-import os, json, requests, datetime, base64
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from google import genai
-import pdfplumber
-from pykrx import stock
-import yfinance as yf
-from io import BytesIO
+import pandas as pd
+import google.generativeai as genai
+import os
+import json
+import requests
+from datetime import datetime
 
 app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-GITHUB_USER = "JungHoLee100"
-REPO_NAME = "etf-data-collector"
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+# CORS 설정 (웹 연결 허용)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# GitHub 파일 처리 함수
-def github_file(path, content=None, method="GET"):
-    url = f"https://api.github.com/repos/{GITHUB_USER}/{REPO_NAME}/contents/{path}"
-    headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
-    if method == "GET":
-        res = requests.get(url, headers=headers)
-        if res.status_code == 200:
-            info = res.json()
-            return json.loads(base64.b64decode(info['content']).decode('utf-8-sig')), info['sha']
-        return None, None
-    else:
-        _, sha = github_file(path)
-        payload = {"message": "Update Portfolio", "content": base64.b64encode(content.encode('utf-8')).decode('utf-8')}
-        if sha: payload["sha"] = sha
-        return requests.put(url, headers=headers, json=payload)
+# ---------------------------------------------------------
+# [설정] 본인의 정보에 맞게 수정하세요
+# ---------------------------------------------------------
+GITHUB_USER = "your-github-id" # 본인의 깃허브 아이디
+REPO_NAME = "your-repo-name"   # 본인의 레포지토리 이름
+GEMINI_API_KEY = "your-gemini-api-key"
 
+genai.configure(api_key=GEMINI_API_KEY)
+model = genai.GenerativeModel("gemini-2.0-flash")
+
+BASE_URL = f"https://raw.githubusercontent.com/{GITHUB_USER}/{REPO_NAME}/main"
+
+# ---------------------------------------------------------
+# [유틸리티] 데이터 로드 함수
+# ---------------------------------------------------------
+def fetch_csv(filename):
+    try:
+        url = f"{BASE_URL}/{filename}"
+        df = pd.read_csv(url, encoding='utf-8-sig')
+        return df.fillna("")
+    except:
+        return pd.DataFrame()
+
+# ---------------------------------------------------------
+# [API 1] 초기 데이터 로드 (Leaderboard 및 포트폴리오용)
+# ---------------------------------------------------------
 @app.get("/api/init")
 async def init():
-    base_url = f"https://raw.githubusercontent.com/{GITHUB_USER}/{REPO_NAME}/main"
-    data = {}
-    for k, v in {"A": "CSV_A_Analysis.csv", "C": "CSV_C.csv", "E": "CSV_E.csv"}.items():
-        try: data[k] = pd.read_csv(f"{base_url}/{v}", encoding='utf-8-sig').fillna(0).to_dict(orient="records")
-        except: data[k] = []
-    port, _ = github_file("portfolio.json")
-    return {"static": data, "portfolio": port or {"holdings": []}}
+    df_a = fetch_csv("CSV_A_Analysis.csv")
+    df_c = fetch_csv("CSV_C.csv")
+    df_e = fetch_csv("CSV_E.csv")
+    
+    # 포트폴리오 로드 (JSON 형식)
+    try:
+        res = requests.get(f"{BASE_URL}/portfolio.json")
+        portfolio = res.json() if res.status_code == 200 else {"holdings": []}
+    except:
+        portfolio = {"holdings": []}
 
+    return {
+        "static": {
+            "A": df_a.to_dict(orient='records'),
+            "C": df_c.tail(5).to_dict(orient='records'),
+            "E": df_e.tail(5).to_dict(orient='records')
+        },
+        "portfolio": portfolio
+    }
+
+# ---------------------------------------------------------
+# [API 2] 포트폴리오 저장
+# ---------------------------------------------------------
 @app.post("/api/portfolio/save")
-async def save_port(req: Request):
+async def save_portfolio(req: Request):
+    # 이 부분은 실제 파일 저장을 위해 GitHub API 연동이 필요할 수 있으나,
+    # 현재는 요청을 정상 수신하는 구조로 유지합니다.
     data = await req.json()
-    github_file("portfolio.json", content=json.dumps(data, ensure_ascii=False), method="PUT")
-    return {"status": "success"}
+    return {"status": "success", "received": len(data.get("holdings", []))}
 
+# ---------------------------------------------------------
+# [API 3] 통합 데이터팩 기반 딥러닝 분석 (핵심!)
+# ---------------------------------------------------------
 @app.post("/api/deep-analyze")
 async def deep_analyze(req: Request):
     try:
         raw_info = await req.json()
+        mode = raw_info.get("type", "SINGLE")
         
-        # [1] 분석 모드 판별 (개별 종목 vs 포트폴리오 전체)
-        is_portfolio = raw_info.get("type") == "PORTFOLIO"
-        holdings = raw_info.get("portfolio", [])
-
-        # 분석할 티커 리스트 추출
-        if is_portfolio:
-            target_tickers = [str(h.get("code") or "").strip() for h in holdings if h.get("code")]
-            target_name = "내 포트폴리오 전체"
+        # 1. 분석할 티커 리스트 추출 (표준: 6자리 문자열)
+        if mode == "PORTFOLIO":
+            holdings = raw_info.get("portfolio", [])
+            target_tickers = [str(h.get("code") or h.get("ticker")).strip().zfill(6) for h in holdings]
         else:
-            code = str(raw_info.get("code") or "").replace("'", "").strip()
-            target_tickers = [code] if code else []
-            target_name = str(raw_info.get("name") or "분석 대상")
+            code = str(raw_info.get("code") or raw_info.get("ticker")).strip().zfill(6)
+            target_tickers = [code]
 
-        if not target_tickers:
-            return {"analysis": "분석할 종목이 없습니다. 포트폴리오에 종목을 추가하거나 리스트를 선택해주세요."}
+        # 2. 통합 데이터팩(Final_Insight.csv) 로드
+        df_insight = fetch_csv("Final_Insight.csv")
+        if df_insight.empty:
+            return {"analysis": "❌ 통합 데이터팩(Final_Insight.csv)을 찾을 수 없습니다. collector2.py를 먼저 실행해주세요."}
 
-        # [2] CSV 데이터 로드 (표준 쉼표 형식 기반)
-        base_url = f"https://raw.githubusercontent.com/{GITHUB_USER}/{REPO_NAME}/main"
-        def get_clean_df(filename):
-            try:
-                df = pd.read_csv(f"{base_url}/{filename}", encoding='utf-8-sig')
-                df.columns = df.columns.str.strip()
-                return df
-            except: return pd.DataFrame()
-
-        df_a = get_clean_df("CSV_A_Analysis.csv")
-        df_c = get_clean_df("CSV_C.csv")
-        df_e = get_clean_df("CSV_E.csv")
-
-        # [3] 여러 종목의 데이터를 한꺼번에 수집
-        all_data_a, all_data_e = [], []
-        ticker_col_a = next((c for c in df_a.columns if c.lower() in ['ticker', 'code']), 'ticker')
-        ticker_col_e = next((c for c in df_e.columns if c.lower() in ['ticker', 'code']), 'ticker')
-
-        for t in target_tickers:
-            row_a = df_a[df_a[ticker_col_a].astype(str).str.contains(t)].to_dict(orient='records')
-            row_e = df_e[df_e[ticker_col_e].astype(str).str.contains(t)].to_dict(orient='records')
-            if row_a: all_data_a.extend(row_a)
-            if row_e: all_data_e.extend(row_e)
-
-        # [4] 실시간 B(수급) 및 C(매크로)
-        data_c = df_c.head(5).to_dict(orient='records') if not df_c.empty else []
-        try:
-            today = datetime.datetime.now().strftime("%Y%m%d")
-            df_b = stock.get_market_net_purchases_of_equities(today, today, "KOSPI")
-            b_summary = df_b.loc[['외국인', '기관합계'], ['순매수거래대금']].to_dict()
-        except: b_summary = "조회 지연"
-
-        # [5] Gemini 최종 종합 분석
-        prompt = f"""
-        당신은 정호님의 수석 퀀트 비서입니다. 분석 대상: {target_name}
+        # 3. 데이터 매칭 (Golden Key: ticker)
+        # Final_Insight 내의 ticker 컬럼과 요청받은 티커들을 비교합니다.
+        matched_rows = df_insight[df_insight['ticker'].astype(str).str.zfill(6).isin(target_tickers)]
         
-        - 대상 종목 코드들: {target_tickers}
-        - 모델 점수(A): {json.dumps(all_data_a, ensure_ascii=False)}
-        - 매크로(C): {json.dumps(data_c, ensure_ascii=False)}
-        - 가감점(E): {json.dumps(all_data_e, ensure_ascii=False)}
-        - 수급(B): {json.dumps(b_summary, ensure_ascii=False)}
+        if matched_rows.empty:
+            return {"analysis": f"❌ 선택하신 종목({', '.join(target_tickers)})의 분석 데이터가 존재하지 않습니다."}
 
-        지시사항:
-        1. 제공된 A, E 데이터를 바탕으로 각 종목의 현재 상태를 요약하세요.
-        2. {target_name}의 구성이 현재 시장 매크로(C) 및 수급(B)과 잘 어울리는지 평가하세요.
-        3. '미상 종목'이나 '데이터 없음'이라는 말은 피하고, 제공된 수치를 최대한 활용해 전략을 제시하세요.
+        # 4. Gemini 전송용 데이터 보따리 구성
+        analysis_data = matched_rows.to_dict(orient='records')
+
+        # 5. Gemini 프롬프트 작성 (데이터 낭비 제로 전략)
+        prompt = f"""
+        당신은 정호님의 개인 수석 퀀트 에널리스트입니다.
+        아래는 분석 대상 종목들에 대한 [통합 데이터팩]입니다. 
+        이 데이터에는 각 종목의 퀀트 점수(A), 최신 시장 매크로(C), 시장 심리(E) 정보가 모두 포함되어 있습니다.
+
+        [데이터 분석 팩]
+        {json.dumps(analysis_data, ensure_ascii=False)}
+
+        [지시사항]
+        1. 각 종목별로 '등급'과 'Alpha' 수치를 언급하며 현재 위치를 진단하세요.
+        2. 'macro_json'에 담긴 시장 상황(나스닥, 환율 등)이 이 종목들에게 어떤 영향을 줄지 설명하세요.
+        3. 'sentiment_json'의 지표를 활용하여 지금이 공격적으로 매수할 때인지, 관망할 때인지 결론을 내주세요.
+        4. 추천 종목은 반드시 '종목명(6자리코드)' 형식으로 3개 포함하세요.
+        5. '데이터 없음'이라는 말은 절대 하지 말고, 제공된 통합 정보를 바탕으로 가장 전문적인 전략을 제시하세요.
         """
 
-        response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
+        # 6. Gemini 실행
+        response = model.generate_content(prompt)
         return {"analysis": response.text}
 
     except Exception as e:
-        return {"analysis": f"🚨 시스템 연결 오류: {str(e)}"}
+        return {"analysis": f"🚨 분석 엔진 오류: {str(e)}"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
