@@ -2,30 +2,32 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>ETF ALPHA MATRIX v86.0</title>
+    <title>ETF ALPHA MATRIX v86.1</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
     <style>
-        body { margin: 0; font-family: 'Pretendard', sans-serif; background: #f8f9fa; color: #333; }
-        .container { padding: 25px; max-width: 1550px; margin: 0 auto; }
-        .card { background: #fff; border: 1px solid #dee2e6; border-radius: 12px; padding: 20px; margin-bottom: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-        .section-title { font-size: 18px; font-weight: 800; color: #007bff; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
+        body { margin: 0; font-family: 'Pretendard', sans-serif; background: #f4f7f9; color: #333; }
+        .container { padding: 25px; max-width: 1600px; margin: 0 auto; }
+        .card { background: #fff; border: 1px solid #e1e4e8; border-radius: 12px; padding: 20px; margin-bottom: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+        .section-title { font-size: 19px; font-weight: 800; color: #007bff; margin-bottom: 18px; display: flex; align-items: center; gap: 10px; }
         table { width: 100%; border-collapse: collapse; font-size: 11px; }
-        th { background: #343a40; color: #fff; padding: 10px; position: sticky; top: 0; }
-        td { padding: 8px; border-bottom: 1px solid #eee; text-align: center; }
-        input, select { padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 11px; }
-        .btn { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        th { background: #2d3436; color: #fff; padding: 12px; position: sticky; top: 0; z-index: 10; }
+        td { padding: 10px; border-bottom: 1px solid #f1f1f1; text-align: center; }
+        input, select { padding: 7px; border: 1px solid #dfe6e9; border-radius: 5px; font-size: 11px; outline: none; transition: 0.2s; }
+        input:focus { border-color: #007bff; box-shadow: 0 0 0 2px rgba(0,123,255,0.1); }
+        .btn { padding: 9px 18px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; font-size: 12px; }
         .btn-primary { background: #007bff; color: #fff; }
-        .btn-success { background: #28a745; color: #fff; }
-        .btn-danger { background: #dc3545; color: #fff; font-size: 10px; }
-        .grid-ai { display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; }
-        .rec-item { padding: 12px; border: 1px solid #e9ecef; border-radius: 8px; margin-bottom: 10px; cursor: pointer; background: #fff; }
-        .rec-item:hover { border-color: #28a745; background: #f0fff4; }
-        pre { white-space: pre-wrap; word-break: break-all; font-family: inherit; font-size: 13px; line-height: 1.6; color: #444; }
-        .filter-group { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; background: #f1f3f5; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
-        .badge-sector { background: #e7f1ff; color: #007bff; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px; }
+        .btn-success { background: #2ecc71; color: #fff; }
+        .btn-danger { background: #ff7675; color: #fff; font-size: 10px; padding: 5px 10px; }
+        .grid-ai { display: grid; grid-template-columns: 1.6fr 1fr; gap: 25px; }
+        .rec-item { padding: 14px; border: 1px solid #edf2f7; border-radius: 10px; margin-bottom: 12px; cursor: pointer; background: #fff; transition: 0.2s; }
+        .rec-item:hover { border-color: #2ecc71; background: #f0fff4; transform: translateY(-2px); }
+        pre { white-space: pre-wrap; word-break: break-all; font-family: inherit; font-size: 14px; line-height: 1.7; color: #2d3436; padding: 15px; background: #fff; border-radius: 8px; border: 1px solid #eee; }
+        .filter-group { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #eee; }
+        .badge-grade { background: #007bff; color: white; padding: 2px 8px; border-radius: 12px; font-weight: bold; }
+        .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000; font-weight: bold; color: #007bff; }
     </style>
 </head>
 <body>
@@ -37,10 +39,10 @@
             const [isAuth, setIsAuth] = useState(false);
             const [pass, setPass] = useState("");
             if (!isAuth) return (
-                <div style={{height:'100vh', display:'flex', justifyContent:'center', alignItems:'center', background:'#121212'}}>
-                    <div style={{background:'#fff', padding:'40px', borderRadius:'20px', textAlign:'center'}}>
-                        <h2 style={{color:'#007bff'}}>📡 SYSTEM GATE v86.0</h2>
-                        <input type="password" value={pass} onChange={(e)=>setPass(e.target.value)} onKeyPress={(e)=>e.key==='Enter' && pass==='sd*11070823' && setIsAuth(true)} style={{padding:'12px', width:'220px', textAlign:'center', border:'1px solid #ddd', borderRadius:'8px'}} placeholder="Password" />
+                <div style={{height:'100vh', display:'flex', justifyContent:'center', alignItems:'center', background:'#1e272e'}}>
+                    <div style={{background:'#fff', padding:'50px', borderRadius:'24px', textAlign:'center', boxShadow:'0 10px 40px rgba(0,0,0,0.3)'}}>
+                        <h2 style={{color:'#007bff', marginBottom:'25px'}}>📡 ETF MATRIX GATE</h2>
+                        <input type="password" value={pass} onChange={(e)=>setPass(e.target.value)} onKeyPress={(e)=>e.key==='Enter' && pass==='sd*11070823' && setIsAuth(true)} style={{padding:'15px', width:'250px', textAlign:'center', border:'2px solid #eee', borderRadius:'12px', fontSize:'16px'}} placeholder="시스템 비밀번호" />
                     </div>
                 </div>
             );
@@ -48,110 +50,138 @@
         };
 
         const Dashboard = () => {
-            const [data, setData] = useState({static:{A:[],C:[],E:[]}, portfolio:{holdings:[]}, logs:[]});
+            const [data, setData] = useState({static:{A:[],C:[],E:[]}, portfolio:{holdings:[]}});
             const [newAsset, setNewAsset] = useState({name:'', code:'', avg_price:'', quantity:'', manual_price:'', purchase_date:''});
             const [aiAnalysis, setAiAnalysis] = useState("");
             const [recommendedStocks, setRecommendedStocks] = useState([]);
             
-            // 필터 및 검색 상태
+            // 필터링 상태
             const [marketFilter, setMarketFilter] = useState("");
             const [sectorFilter, setSectorFilter] = useState("");
-            const [searchKeyword, setSearchKeyword] = useState(""); // 섹터 직접 검색용
-            const [excludeKeywords, setExcludeKeywords] = useState("레버리지, 선물, 인버스");
+            const [searchKeyword, setSearchKeyword] = useState("");
+            const [excludeKeywords, setExcludeKeywords] = useState("레버리지, 선물, 인버스, 곱버스");
             
             const [loading, setLoading] = useState(false);
             const todayDate = new Date().toISOString().split('T')[0];
             const API_BASE = "https://etf-data-collector.onrender.com/api";
 
             const init = async () => {
+                setLoading(true);
                 const res = await fetch(`${API_BASE}/init`);
                 setData(await res.json());
+                setLoading(false);
             };
             useEffect(() => { init(); }, []);
 
-            // --- [핵심] 지능형 섹터 분류 체계 ---
-            const sectorMap = {
-                "반도체": ["반도체", "HBM", "칩", "메모리"],
-                "2차전지": ["2차전지", "배터리", "에너지솔루션", "양극재"],
-                "IT/테크": ["IT", "테크", "기술", "소프트웨어", "AI", "정보통신"],
-                "금융/은행": ["금융", "은행", "증권", "보험", "금리"],
-                "바이오/헬스": ["바이오", "헬스케어", "제약", "생명공학"],
-                "배당/가치": ["배당", "가치", "고배당", "우선주"],
-                "ESG/친환경": ["ESG", "친환경", "탄소", "태양광", "풍력"],
-                "소비재/유통": ["소비재", "유통", "음식료", "패션"]
+            // --- [1] 자산 관리 로직 (저장 및 실시간 수정) ---
+            const savePortfolio = async (holdings) => {
+                await fetch(`${API_BASE}/portfolio/save`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({holdings}) });
             };
 
-            const filteredEtfList = useMemo(() => {
+            const handleAddAsset = async () => {
+                if(!newAsset.name || !newAsset.code || !newAsset.purchase_date) return alert("필수 정보를 모두 입력하세요.");
+                const updated = [...data.portfolio.holdings, { ...newAsset, avg_price: Number(newAsset.avg_price), quantity: Number(newAsset.quantity), manual_price: Number(newAsset.manual_price || newAsset.avg_price) }];
+                setData({ ...data, portfolio: { holdings: updated } });
+                await savePortfolio(updated);
+                setNewAsset({name:'', code:'', avg_price:'', quantity:'', manual_price:'', purchase_date:''});
+            };
+
+            const updateAssetField = async (index, field, value) => {
+                const updated = [...data.portfolio.holdings];
+                updated[index][field] = (field === 'name' || field === 'code' || field === 'purchase_date') ? value : Number(value);
+                setData({ ...data, portfolio: { holdings: updated } });
+                await savePortfolio(updated); // 수정 즉시 서버 저장
+            };
+
+            const handleDeleteAsset = async (i) => {
+                const updated = data.portfolio.holdings.filter((_, idx) => idx !== i);
+                setData({...data, portfolio:{holdings:updated}});
+                await savePortfolio(updated);
+            };
+
+            // --- [2] Gemini 분석 로직 ---
+            const runAnalysis = async (item = null) => {
+                setLoading(true);
+                const payload = item ? { code: item.code || item.ticker, name: item.name } : { portfolio: data.portfolio.holdings, type: "PORTFOLIO" };
+                const res = await fetch(`${API_BASE}/deep-analyze`, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                const result = await res.json();
+                setAiAnalysis(result.analysis);
+                setLoading(false);
+            };
+
+            const extractRecommendations = () => {
+                const regex = /([가-힣A-Z0-9\s]+)\((\d{6})\)/g;
+                let match, extracted = [];
+                while ((match = regex.exec(aiAnalysis)) !== null) extracted.push({ name: match[1].trim(), code: match[2] });
+                if(extracted.length === 0) alert("추천된 종목 패턴을 찾지 못했습니다.");
+                setRecommendedStocks(extracted);
+            };
+
+            // --- [3] 지능형 필터링 로직 ---
+            const sectorKeywords = {
+                "반도체/AI": ["반도체", "HBM", "AI", "칩", "엔비디아"],
+                "2차전지/배터리": ["2차전지", "배터리", "양극재", "리튬"],
+                "금융/배당": ["금융", "은행", "보험", "배당", "가치"],
+                "바이오/헬스": ["바이오", "헬스케어", "제약"],
+                "기술/소프트웨어": ["IT", "테크", "소프트웨어", "플랫폼"],
+                "인프라/에너지": ["에너지", "건설", "원자력", "신재생"]
+            };
+
+            const filteredList = useMemo(() => {
                 let list = data.static.A || [];
+                // 1. 제외 키워드 필터
+                const ex = excludeKeywords.split(',').map(k => k.trim()).filter(k => k);
+                list = list.filter(item => !ex.some(key => (item.name || "").includes(key)));
 
-                // 1. 제외 키워드
-                const exKeywords = excludeKeywords.split(',').map(k => k.trim()).filter(k => k);
-                if (exKeywords.length > 0) {
-                    list = list.filter(item => !exKeywords.some(key => (item.name || "").includes(key)));
+                // 2. 시장 필터 (Heuristic)
+                if (marketFilter === "KOSPI") list = list.filter(item => (item.name || "").includes("200") || (item.name || "").includes("K200") || (item.name || "").includes("코스피"));
+                if (marketFilter === "KOSDAQ") list = list.filter(item => (item.name || "").includes("150") || (item.name || "").includes("코스닥") || (item.name || "").includes("KQ"));
+
+                // 3. 섹터 필터 (드롭다운 + 검색어)
+                const finalQuery = searchKeyword || sectorFilter;
+                if (finalQuery) {
+                    const keys = sectorKeywords[finalQuery] || [finalQuery];
+                    list = list.filter(item => keys.some(k => (item.name || "").includes(k) || (item.description || "").includes(k)));
                 }
-
-                // 2. 시장 분류 (개선된 로직)
-                if (marketFilter === "KOSPI") {
-                    list = list.filter(item => (item.name || "").includes("200") || (item.name || "").includes("K200") || (item.name || "").includes("코스피"));
-                } else if (marketFilter === "KOSDAQ") {
-                    list = list.filter(item => (item.name || "").includes("150") || (item.name || "").includes("KQ") || (item.name || "").includes("코스닥"));
-                }
-
-                // 3. 섹터 분류 (드롭박스 + 검색 통합)
-                const finalSector = searchKeyword || sectorFilter;
-                if (finalSector) {
-                    const keywords = sectorMap[finalSector] || [finalSector];
-                    list = list.filter(item => 
-                        keywords.some(key => (item.name || "").includes(key) || (item.description || "").includes(key))
-                    );
-                }
-
                 return list;
             }, [data.static.A, marketFilter, sectorFilter, searchKeyword, excludeKeywords]);
 
-            // 자산 관리 및 기타 함수 (기존 유지)
-            const savePortfolioOnServer = async (holdings) => { await fetch(`${API_BASE}/portfolio/save`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({holdings}) }); };
-            const handleAddAsset = async () => {
-                if(!newAsset.name || !newAsset.code || !newAsset.purchase_date) return alert("필수 정보를 입력하세요.");
-                const updatedHoldings = [...data.portfolio.holdings, { ...newAsset, avg_price: Number(newAsset.avg_price), quantity: Number(newAsset.quantity), manual_price: Number(newAsset.manual_price || newAsset.avg_price), current_date: todayDate }];
-                setData({ ...data, portfolio: { holdings: updatedHoldings } });
-                await savePortfolioOnServer(updatedHoldings);
-                setNewAsset({name:'', code:'', avg_price:'', quantity:'', manual_price:'', purchase_date:''});
-            };
-            const handleDeleteAsset = async (i) => { const updated = data.portfolio.holdings.filter((_, idx) => idx !== i); setData({...data, portfolio:{holdings:updated}}); await savePortfolioOnServer(updated); };
-            const handlePriceChange = async (i, price) => { const updated = [...data.portfolio.holdings]; updated[i].manual_price = Number(price); setData({...data, portfolio:{holdings:updated}}); await savePortfolioOnServer(updated); };
-            const analyzePortfolio = async () => { setLoading(true); setAiAnalysis("🤖 Gemini 분석 중..."); const res = await fetch(`${API_BASE}/deep-analyze`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ portfolio: data.portfolio.holdings, type: "PORTFOLIO_SUMMARY" }) }); const result = await res.json(); setAiAnalysis(result.analysis); setLoading(false); };
-            const moveRecommendations = () => { const regex = /([가-힣A-Z\s]+)\((\d{6})\)/g; let match, extracted = []; while ((match = regex.exec(aiAnalysis)) !== null) extracted.push({ name: match[1].trim(), code: match[2] }); setRecommendedStocks(extracted); };
-            const handleDeepAnalysis = async (item) => { setLoading(true); const res = await fetch(`${API_BASE}/deep-analyze`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ code: item.code, name: item.name }) }); const result = await res.json(); setAiAnalysis(result.analysis); setData(prev => ({...prev, logs: result.logs})); setLoading(false); };
-
             return (
                 <div className="container">
-                    {/* [1] 자산 관리 */}
-                    <section className="card" style={{borderTop: '5px solid #007bff'}}>
+                    {loading && <div className="loading-overlay">⏳ Gemini가 데이터를 융합 분석 중입니다...</div>}
+
+                    {/* [상단] 자산 포트폴리오 관리 */}
+                    <section className="card" style={{borderTop: '6px solid #007bff'}}>
                         <div className="section-title">💼 내 자산 포트폴리오 관리</div>
-                        <div style={{display:'flex', flexWrap:'wrap', gap:'8px', marginBottom:'20px', background:'#f1f3f5', padding:'15px', borderRadius:'8px'}}>
-                            <input placeholder="종목명" value={newAsset.name} onChange={e=>setNewAsset({...newAsset, name:e.target.value})} style={{width:'120px'}} />
+                        <div style={{display:'flex', flexWrap:'wrap', gap:'10px', marginBottom:'20px', background:'#f8f9fa', padding:'15px', borderRadius:'10px'}}>
+                            <input placeholder="종목명" value={newAsset.name} onChange={e=>setNewAsset({...newAsset, name:e.target.value})} style={{width:'130px'}} />
                             <input placeholder="코드" value={newAsset.code} onChange={e=>setNewAsset({...newAsset, code:e.target.value})} style={{width:'80px'}} />
                             <input type="date" value={newAsset.purchase_date} onChange={e=>setNewAsset({...newAsset, purchase_date:e.target.value})} />
-                            <input type="number" placeholder="매입단가" value={newAsset.avg_price} onChange={e=>setNewAsset({...newAsset, avg_price:e.target.value})} style={{width:'90px'}} />
+                            <input type="number" placeholder="매입가" value={newAsset.avg_price} onChange={e=>setNewAsset({...newAsset, avg_price:e.target.value})} style={{width:'100px'}} />
                             <input type="number" placeholder="수량" value={newAsset.quantity} onChange={e=>setNewAsset({...newAsset, quantity:e.target.value})} style={{width:'60px'}} />
                             <button className="btn btn-primary" onClick={handleAddAsset}>+ 종목 추가</button>
                         </div>
                         <table>
                             <thead>
-                                <tr><th>매수일자</th><th>현재일자</th><th>종목명(코드)</th><th>매입단가</th><th>수량</th><th>현재가</th><th>수익금</th><th>수익률</th><th>관리</th></tr>
+                                <tr><th>매수일자</th><th>현재일자</th><th>종목명(코드)</th><th>매입단가</th><th>수량</th><th>현재가(수정)</th><th>수익금</th><th>수익률</th><th>삭제</th></tr>
                             </thead>
                             <tbody>
                                 {data.portfolio.holdings.map((h, i) => {
                                     const profit = (h.manual_price - h.avg_price) * h.quantity;
+                                    const rate = ((h.manual_price / h.avg_price - 1) * 100).toFixed(2);
                                     return (
                                         <tr key={i}>
-                                            <td>{h.purchase_date}</td><td>{todayDate}</td>
+                                            <td><input type="date" value={h.purchase_date} onChange={e=>updateAssetField(i, 'purchase_date', e.target.value)} /></td>
+                                            <td style={{color:'#999'}}>{todayDate}</td>
                                             <td style={{fontWeight:'bold'}}>{h.name}({h.code})</td>
-                                            <td>{Number(h.avg_price).toLocaleString()}</td><td>{h.quantity}</td>
-                                            <td><input type="number" value={h.manual_price} onChange={(e) => handlePriceChange(i, e.target.value)} style={{width:'80px', textAlign:'center', border:'1px solid #007bff'}} /></td>
-                                            <td style={{color: profit>=0?'red':'blue'}}>{profit.toLocaleString()}</td>
-                                            <td style={{fontWeight:'bold', color: profit>=0?'red':'blue'}}>{((h.manual_price/h.avg_price - 1)*100).toFixed(2)}%</td>
+                                            <td><input type="number" value={h.avg_price} onChange={e=>updateAssetField(i, 'avg_price', e.target.value)} style={{width:'85px'}} /></td>
+                                            <td><input type="number" value={h.quantity} onChange={e=>updateAssetField(i, 'quantity', e.target.value)} style={{width:'55px'}} /></td>
+                                            <td><input type="number" value={h.manual_price} onChange={e=>updateAssetField(i, 'manual_price', e.target.value)} style={{width:'90px', border:'1px solid #007bff'}} /></td>
+                                            <td style={{color: profit>=0?'#e74c3c':'#3498db', fontWeight:'bold'}}>{profit.toLocaleString()}</td>
+                                            <td style={{color: profit>=0?'#e74c3c':'#3498db', fontWeight:'bold'}}>{rate}%</td>
                                             <td><button className="btn-danger" onClick={()=>handleDeleteAsset(i)}>삭제</button></td>
                                         </tr>
                                     );
@@ -160,72 +190,77 @@
                         </table>
                     </section>
 
-                    {/* [2] Gemini 분석 */}
+                    {/* [중단] Gemini 분석 섹션 */}
                     <div className="grid-ai">
                         <section className="card">
-                            <div className="section-title">🔍 Gemini 보유종목 분석</div>
-                            <div style={{display:'flex', gap:'10px', marginBottom:'15px'}}>
-                                <button className="btn btn-success" onClick={analyzePortfolio} disabled={loading}>보유종목분석</button>
-                                <button className="btn btn-primary" onClick={moveRecommendations}>AI추천종목 이동 ➔</button>
+                            <div className="section-title">🔍 Gemini 인텔리전스 분석 (A+C+E+B+D)</div>
+                            <div style={{display:'flex', gap:'12px', marginBottom:'15px'}}>
+                                <button className="btn btn-success" onClick={()=>runAnalysis()}>보유종목분석</button>
+                                <button className="btn btn-primary" onClick={extractRecommendations}>AI추천종목 이동 ➔</button>
                             </div>
-                            <div style={{minHeight:'300px', padding:'15px', background:'#f9f9f9', borderRadius:'8px', border:'1px solid #ddd'}}><pre>{aiAnalysis || "분석 버튼을 눌러주세요."}</pre></div>
+                            <pre>{aiAnalysis || "보유종목 분석 버튼을 누르면 정교한 퀀트 전략이 생성됩니다."}</pre>
                         </section>
                         <section className="card">
-                            <div className="section-title">🌟 AI 추천 종목 리스트</div>
-                            <div style={{minHeight:'350px'}}>
-                                {recommendedStocks.map((stock, idx) => (
-                                    <div key={idx} className="rec-item" onDoubleClick={() => handleDeepAnalysis(stock)}><strong>{stock.name}</strong> ({stock.code})</div>
+                            <div className="section-title">🌟 AI 추천 종목 (Deep-Dive)</div>
+                            <p style={{fontSize:'11px', color:'#666', marginBottom:'15px'}}>* 종목을 **더블 클릭**하면 PDF와 실시간 데이터를 결합한 심층 분석이 실행됩니다.</p>
+                            <div style={{minHeight:'400px'}}>
+                                {recommendedStocks.map((s, idx) => (
+                                    <div key={idx} className="rec-item" onDoubleClick={()=>runAnalysis(s)}>
+                                        <strong>{s.name}</strong> <span style={{fontSize:'12px', color:'#999'}}>({s.code})</span>
+                                    </div>
                                 ))}
                             </div>
                         </section>
                     </div>
 
-                    {/* [3] ETF 리더보드 (지능형 섹터 분류기) */}
+                    {/* [하단] ETF 리더보드 (고급 필터링) */}
                     <section className="card">
-                        <div className="section-title">🚀 ETF 리더보드 (지능형 분류 시스템)</div>
-                        
+                        <div className="section-title">🚀 ETF 리더보드 (CSV_A_Analysis 기준)</div>
                         <div className="filter-group">
                             <div>
-                                <label style={{fontSize:'11px', fontWeight:'bold'}}>🚫 제외 키워드: </label>
-                                <input value={excludeKeywords} onChange={e=>setExcludeKeywords(e.target.value)} style={{width:'200px'}} />
+                                <label style={{fontSize:'11px', fontWeight:'bold', display:'block', marginBottom:'5px'}}>🚫 제외 키워드</label>
+                                <input value={excludeKeywords} onChange={e=>setExcludeKeywords(e.target.value)} style={{width:'220px'}} />
                             </div>
                             <div>
-                                <label style={{fontSize:'11px', fontWeight:'bold'}}>🏛️ 시장 구분: </label>
+                                <label style={{fontSize:'11px', fontWeight:'bold', display:'block', marginBottom:'5px'}}>🏛️ 시장 분류</label>
                                 <select value={marketFilter} onChange={e=>setMarketFilter(e.target.value)}>
                                     <option value="">전체 시장</option>
-                                    <option value="KOSPI">KOSPI 계열</option>
-                                    <option value="KOSDAQ">KOSDAQ 계열</option>
+                                    <option value="KOSPI">KOSPI (200계열)</option>
+                                    <option value="KOSDAQ">KOSDAQ (150계열)</option>
                                 </select>
                             </div>
                             <div>
-                                <label style={{fontSize:'11px', fontWeight:'bold'}}>📂 섹터 선택: </label>
+                                <label style={{fontSize:'11px', fontWeight:'bold', display:'block', marginBottom:'5px'}}>📂 섹터 선택</label>
                                 <select value={sectorFilter} onChange={e=>{setSectorFilter(e.target.value); setSearchKeyword("");}}>
                                     <option value="">전체 섹터</option>
-                                    {Object.keys(sectorMap).map(s => <option key={s} value={s}>{s}</option>)}
+                                    {Object.keys(sectorKeywords).map(k => <option key={k} value={k}>{k}</option>)}
                                 </select>
                             </div>
                             <div>
-                                <label style={{fontSize:'11px', fontWeight:'bold'}}>🔍 섹터 직접 검색: </label>
-                                <input placeholder="예: 우주항공, 원자재" value={searchKeyword} onChange={e=>{setSearchKeyword(e.target.value); setSectorFilter("");}} style={{width:'150px'}} />
+                                <label style={{fontSize:'11px', fontWeight:'bold', display:'block', marginBottom:'5px'}}>🔍 섹터 검색</label>
+                                <input placeholder="예: 우주항공, 인프라" value={searchKeyword} onChange={e=>{setSearchKeyword(e.target.value); setSectorFilter("");}} style={{width:'150px'}} />
                             </div>
-                            <div style={{fontSize:'11px', color:'#666', marginLeft:'auto'}}>표시 중: <strong>{filteredEtfList.length}</strong>개 종목</div>
+                            <div style={{marginLeft:'auto', textAlign:'right'}}>
+                                <span style={{fontSize:'12px', fontWeight:'bold', color:'#007bff'}}>검색 결과: {filteredList.length}건</span>
+                            </div>
                         </div>
-
-                        <table>
+                        <table style={{marginTop:'10px'}}>
                             <thead>
-                                <tr><th>종목명(코드)</th><th>현재가</th><th>등급</th><th>Alpha(1M)</th><th>RVOL</th><th>1주%</th><th>1달%</th><th>모델 인사이트</th></tr>
+                                <tr>
+                                    <th>종목명(코드)</th><th>현재가</th><th>등급</th><th>Alpha(1M)</th><th>RVOL</th><th>1주%</th><th>1달%</th><th>모델 인사이트</th>
+                                </tr>
                             </thead>
                             <tbody>
-                                {filteredEtfList.slice(0, 50).map((item, i) => (
+                                {filteredList.slice(0, 50).map((item, i) => (
                                     <tr key={i}>
                                         <td style={{textAlign:'left', fontWeight:'bold'}}>{item.name}({item.ticker})</td>
                                         <td>{Number(item.price_curr || 0).toLocaleString()}</td>
-                                        <td><span className="badge-sector">{item.grade_score}</span></td>
-                                        <td style={{color:(item.alpha_1m||0)>0?'red':'blue'}}>{item.alpha_1m}%</td>
+                                        <td><span className="badge-grade">{item.grade_score}</span></td>
+                                        <td style={{color:(item.alpha_1m||0)>0?'#e74c3c':'#3498db', fontWeight:'bold'}}>{item.alpha_1m}%</td>
                                         <td>{item.rvol}배</td>
                                         <td>{item.return_1w}%</td>
                                         <td>{item.return_1m}%</td>
-                                        <td style={{textAlign:'left', color:'#666', fontSize:'10px'}}>{item.description}</td>
+                                        <td style={{textAlign:'left', color:'#636e72', fontSize:'10px', lineHeight:'1.4'}}>{item.description}</td>
                                     </tr>
                                 ))}
                             </tbody>
