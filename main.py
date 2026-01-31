@@ -44,31 +44,6 @@ async def init():
     except: portfolio = {"holdings": []}
     return {"static": {"A": df_final.to_dict(orient='records')}, "portfolio": portfolio}
 
-@app.post("/api/deep-analyze")
-async def deep_analyze(req: Request):
-    try:
-        raw_info = await req.json()
-        p_items = raw_info.get("portfolio_items", [])
-        l_items = raw_info.get("leaderboard_items", [])
-        all_tickers = [str(i['code']).zfill(6) for i in (p_items + l_items)]
-        
-        df_insight = fetch_csv("Final_Insight.csv")
-        matched_data = df_insight[df_insight['ticker'].astype(str).str.zfill(6).isin(all_tickers)].to_dict(orient='records')
-
-        prompt = f"""
-        당신은 정호님의 수석 퀀트 에널리스트입니다. 
-        선택된 종목군을 비교 분석하여 최적의 포트폴리오 전략을 제안하세요.
-
-        [내 포트폴리오] {json.dumps(p_items, ensure_ascii=False)}
-        [리더보드 선택종목] {json.dumps(l_items, ensure_ascii=False)}
-        [상세 퀀트/매크로 데이터] {json.dumps(matched_data, ensure_ascii=False)}
-
-        지침: 각 종목의 등급, Alpha, RVOL을 기반으로 종목 교체 여부 및 매수/매도 의견을 기술하고, 마지막에 유망종목 3개를 '종목명(코드)' 형식으로 추천하세요.
-        """
-        response = model.generate_content(prompt)
-        return {"analysis": response.text}
-    except Exception as e: return {"analysis": f"오류: {str(e)}"}
-
 @app.post("/api/portfolio/save")
 async def save_portfolio(req: Request):
     try:
@@ -84,6 +59,20 @@ async def save_portfolio(req: Request):
         requests.put(url, headers=headers, json=payload)
         return {"status": "success"}
     except Exception as e: return {"status": "error", "message": str(e)}
+
+@app.post("/api/deep-analyze")
+async def deep_analyze(req: Request):
+    try:
+        raw_info = await req.json()
+        p_items = raw_info.get("portfolio_items", [])
+        l_items = raw_info.get("leaderboard_items", [])
+        all_tickers = [str(i['code']).zfill(6) for i in (p_items + l_items)]
+        df_insight = fetch_csv("Final_Insight.csv")
+        matched_data = df_insight[df_insight['ticker'].astype(str).str.zfill(6).isin(all_tickers)].to_dict(orient='records')
+        prompt = f"퀀트 전문가로서 다음 종목군을 비교 분석하세요: {json.dumps(matched_data, ensure_ascii=False)}\n마지막에 추천종목 3개를 '종목명(코드)' 형식으로 기재하세요."
+        response = model.generate_content(prompt)
+        return {"analysis": response.text}
+    except Exception as e: return {"analysis": f"오류: {str(e)}"}
 
 if __name__ == "__main__":
     import uvicorn
