@@ -10,15 +10,9 @@ from io import StringIO
 from datetime import datetime
 
 app = FastAPI()
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Render 환경 변수 로드
+# 환경 변수 로드
 GITHUB_USER = os.getenv("GITHUB_USER")
 REPO_NAME = os.getenv("REPO_NAME")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
@@ -51,60 +45,54 @@ async def init():
     except: portfolio = {"holdings": []}
     return {"static": {"A": df_final.to_dict(orient='records')}, "portfolio": portfolio}
 
-# [기능 수정] 포트폴리오를 GitHub에 실제로 저장하는 로직
 @app.post("/api/portfolio/save")
 async def save_portfolio(req: Request):
     try:
         data = await req.json()
         holdings = data.get("holdings", [])
-        
         url = f"https://api.github.com/repos/{GITHUB_USER}/{REPO_NAME}/contents/portfolio.json"
-        headers = {
-            "Authorization": f"token {GITHUB_TOKEN}",
-            "Accept": "application/vnd.github.v3+json"
-        }
-        
-        # 1. 기존 파일의 SHA 값 가져오기
+        headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
         res = requests.get(url, headers=headers)
         sha = res.json().get("sha") if res.status_code == 200 else None
-        
-        # 2. 데이터를 JSON 문자열로 변환 후 Base64 인코딩
-        content_dict = {"holdings": holdings}
-        content_json = json.dumps(content_dict, indent=2, ensure_ascii=False)
+        content_json = json.dumps({"holdings": holdings}, indent=2, ensure_ascii=False)
         encoded_content = base64.b64encode(content_json.encode("utf-8")).decode("utf-8")
-        
-        # 3. GitHub에 업데이트 요청 (PUT)
-        payload = {
-            "message": f"Portfolio updated by User at {datetime.now().strftime('%Y-%m-%d %H:%M')}",
-            "content": encoded_content,
-            "sha": sha
-        }
-        
-        put_res = requests.put(url, headers=headers, json=payload)
-        if put_res.status_code in [200, 201]:
-            return {"status": "success"}
-        else:
-            return {"status": "error", "message": f"GitHub Error: {put_res.status_code}"}
-            
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+        payload = {"message": "Update Portfolio", "content": encoded_content, "sha": sha}
+        requests.put(url, headers=headers, json=payload)
+        return {"status": "success"}
+    except Exception as e: return {"status": "error", "message": str(e)}
 
 @app.post("/api/deep-analyze")
 async def deep_analyze(req: Request):
     try:
         raw_info = await req.json()
-        mode = raw_info.get("type", "SINGLE")
-        if mode == "PORTFOLIO":
-            target_tickers = [str(h.get("code")).strip().zfill(6) for h in raw_info.get("portfolio", [])]
-        else:
-            target_tickers = [str(raw_info.get("code")).strip().zfill(6)]
-
+        # 내 포트폴리오와 리더보드 선택 종목 분리 수신
+        p_items = raw_info.get("portfolio_items", [])
+        l_items = raw_info.get("leaderboard_items", [])
+        
+        all_tickers = [str(i['code']).zfill(6) for i in (p_items + l_items)]
+        
         df_insight = fetch_csv("Final_Insight.csv")
-        matched_rows = df_insight[df_insight['ticker'].astype(str).str.zfill(6).isin(target_tickers)]
-        if matched_rows.empty: return {"analysis": "데이터를 찾을 수 없습니다."}
+        matched_data = df_insight[df_insight['ticker'].astype(str).str.zfill(6).isin(all_tickers)].to_dict(orient='records')
 
-        analysis_data = matched_rows.to_dict(orient='records')
-        prompt = f"퀀트 전문가로서 다음 모든 종목을 개별 분석하고 전략을 제시하세요: {json.dumps(analysis_data, ensure_ascii=False)}\n\n추천종목은 마지막에 '종목명(코드)' 형식으로만 나열하세요."
+        prompt = f"""
+        당신은 정호님의 수석 퀀트 에널리스트입니다. 
+        두 그룹의 종목들을 비교 분석하여 어느 쪽이 현재 시장 상황에서 더 우월한지 판정하세요.
+
+        [그룹 1: 내 자산 포트폴리오]
+        {json.dumps(p_items, ensure_ascii=False)}
+
+        [그룹 2: 리더보드 선택 종목]
+        {json.dumps(l_items, ensure_ascii=False)}
+
+        [상세 데이터팩]
+        {json.dumps(matched_data, ensure_ascii=False)}
+
+        [분석 지침]
+        1. 내 포트폴리오 종목들의 현재 등급과 수익률을 진단하세요.
+        2. 리더보드에서 선택된 종목들이 내 포트폴리오보다 어떤 점에서 우위에 있는지(Alpha, RVOL 등) 비교하세요.
+        3. 매크로(C)와 심리(E) 지표를 바탕으로 '종목 교체'가 필요한지 결론을 내주세요.
+        4. 마지막에 '추천종목:' 섹션에 가장 유망한 3개를 '종목명(코드)' 형식으로 기재하세요.
+        """
         response = model.generate_content(prompt)
         return {"analysis": response.text}
     except Exception as e: return {"analysis": f"오류: {str(e)}"}
