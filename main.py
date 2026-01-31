@@ -50,66 +50,64 @@ async def save_port(req: Request):
 
 @app.post("/api/deep-analyze")
 async def deep_analyze(req: Request):
-    info = await req.json()
-    code, name = str(info.get("code")), info.get("name")
-    
-    # --- [1] CSV A, C, E 데이터 로드 (Gemini 주입용) ---
-    base_url = f"https://raw.githubusercontent.com/{GITHUB_USER}/{REPO_NAME}/main"
     try:
-        df_a = pd.read_csv(f"{base_url}/CSV_A_Analysis.csv", encoding='utf-8-sig')
-        df_c = pd.read_csv(f"{base_url}/CSV_C.csv", encoding='utf-8-sig') # 👈 누락된 C 추가
-        df_e = pd.read_csv(f"{base_url}/CSV_E.csv", encoding='utf-8-sig')
-        
-        target_a = df_a[df_a['ticker'] == code].to_dict(orient='records')
-        macro_c = df_c.head(10).to_dict(orient='records') # 👈 시장 전체 매크로 정보
-        target_e = df_e[df_e['ticker'] == code].to_dict(orient='records')
-    except:
-        target_a, macro_c, target_e = [], [], []
+        raw_info = await req.json()
+        # 프론트엔드에서 오는 code(ticker)를 깨끗하게 정리 (따옴표 제거)
+        target_code = str(raw_info.get("code") or raw_info.get("ticker") or "").replace("'", "").strip()
+        target_name = raw_info.get("name") or "미상 종목"
 
-    # --- [2] PDF 분석 (개별 종목명 추출) ---
-    pdf_stocks = "PDF 정보 없음"
-    try:
-        res = requests.get(f"https://api.github.com/repos/{GITHUB_USER}/{REPO_NAME}/contents/reports", 
-                           headers={"Authorization": f"token {GITHUB_TOKEN}"})
-        files = res.json()
-        target_pdf = next((f for f in files if f"({code})" in f['name']), None)
-        if target_pdf:
-            pdf_res = requests.get(target_pdf['download_url'])
-            with pdfplumber.open(BytesIO(pdf_res.content)) as pdf:
-                text = "\n".join([p.extract_text() for p in pdf.pages[:3]])
-                extract_res = client.models.generate_content(
-                    model="gemini-2.0-flash", 
-                    contents=f"이 ETF 보고서 텍스트에서 상위 5개 보유 종목명만 리스트로 뽑아줘: {text}"
-                )
-                pdf_stocks = extract_res.text
-    except: pass
+        base_url = f"https://raw.githubusercontent.com/{GITHUB_USER}/{REPO_NAME}/main"
 
-    # --- [3] 실시간 수급(B) 및 ETF 상태(D) ---
-    today = datetime.datetime.now().strftime("%Y%m%d")
-    try:
-        df_b = stock.get_market_net_purchases_of_equities(today, today, "KOSPI")
-        b_data = df_b.loc[['외국인', '기관합계'], ['순매수거래대금']].to_dict()
-        ticker_yf = yf.Ticker(f"{code}.KS" if not code.startswith('k') else f"{code}.KQ")
-        hist = ticker_yf.history(period="30d")
-        d_data = f"현재가: {hist['Close'].iloc[-1]}, 20일평균: {hist['Close'].rolling(20).mean().iloc[-1]:.2f}"
-    except: b_data, d_data = "조회 불가", "조회 불가"
+        def get_clean_df(filename):
+            try:
+                # 쉼표 구분 표준 CSV 로드
+                df = pd.read_csv(f"{base_url}/{filename}", encoding='utf-8-sig')
+                # 모든 컬럼명과 문자열 데이터의 양끝 공백 제거
+                df.columns = df.columns.str.strip()
+                return df
+            except: return pd.DataFrame()
 
-    # --- [4] Gemini 종합 추론 (A, C, E, B, D, PDF 융합) ---
-    prompt = f"""
-    당신은 정호님의 수석 퀀트 애널리스트입니다. 다음 데이터를 종합하여 {name}({code})에 대한 투자 전략을 수립하세요.
-    
-    1. 모델 지표(A): {json.dumps(target_a, ensure_ascii=False)}
-    2. 시장 매크로 환경(C): {json.dumps(macro_c, ensure_ascii=False)}
-    3. 상세 가감점(E): {json.dumps(target_e, ensure_ascii=False)}
-    4. 실시간 시장 수급(B): {json.dumps(b_data, ensure_ascii=False)}
-    5. ETF 가격 상태(D): {d_data}
-    6. PDF 리포트내 상위 종목: {pdf_stocks}
-    
-    [미션]
-    - CSV_C의 매크로 상황이 현재 종목의 A등급과 E상세 점수에 어떤 영향을 주는지 분석하세요.
-    - PDF에서 나온 상위 종목들의 기세와 파생 수급(B)을 고려해 '매수/보유/매도' 결론을 내리세요.
-    - CSV_A_Analysis 리스트 중 등급이 높은 유사 종목 3개를 '종목명(코드)' 형식으로 추천하세요.
-    """
-    
-    response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
-    return {"analysis": response.text}
+        # [1] 데이터 로드
+        df_a = get_clean_df("CSV_A_Analysis.csv")
+        df_c = get_clean_df("CSV_C.csv")
+        df_e = get_clean_df("CSV_E.csv")
+
+        # [2] 대상 종목 매칭 (작은따옴표가 포함된 경우와 없는 경우 모두 대응)
+        def find_row(df, code):
+            if df.empty: return []
+            col = next((c for c in df.columns if c.lower() in ['ticker', 'code', '종목코드']), None)
+            if not col: return []
+            # 데이터 내의 '005930' 혹은 005930 모두를 타겟 코드와 비교
+            mask = df[col].astype(str).str.replace("'", "").str.strip() == code
+            return df[mask].to_dict(orient='records')
+
+        data_a = find_row(df_a, target_code)
+        data_c = df_c.head(10).to_dict(orient='records') # 매크로는 전체 흐름 전달
+        data_e = find_row(df_e, target_code)
+
+        # [3] 실시간 B(수급) 정보 수집
+        try:
+            today = datetime.datetime.now().strftime("%Y%m%d")
+            df_b = stock.get_market_net_purchases_of_equities(today, today, "KOSPI")
+            b_summary = df_b.loc[['외국인', '기관합계'], ['순매수거래대금']].to_dict()
+        except: b_summary = "수급 데이터 일시적 지연"
+
+        # [4] Gemini 최종 분석 명령
+        prompt = f"""
+        당신은 퀀트 전문가입니다. 분석 종목: {target_name}({target_code})
+        - 모델 분석(A): {json.dumps(data_a, ensure_ascii=False)}
+        - 시장 매크로(C): {json.dumps(data_c, ensure_ascii=False)}
+        - 상세 지표(E): {json.dumps(data_e, ensure_ascii=False)}
+        - 실시간 수급(B): {json.dumps(b_summary, ensure_ascii=False)}
+
+        [지시]
+        1. 위 데이터를 종합하여 {target_name}에 대한 투자 등급을 재평가하고 사유를 설명하세요.
+        2. '데이터 없음'이라는 표현 대신, 현재 시장 지표를 통해 유추할 수 있는 최선의 전략을 제시하세요.
+        3. 추천 종목은 반드시 '종목명(코드)' 형식으로 3개 포함하세요.
+        """
+
+        response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
+        return {"analysis": response.text}
+
+    except Exception as e:
+        return {"analysis": f"🛠️ 분석 도중 오류 발생: {str(e)}"}
