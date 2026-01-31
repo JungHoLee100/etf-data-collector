@@ -2,30 +2,32 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>ETF ALPHA MATRIX v86.4</title>
+    <title>ETF ALPHA MATRIX v86.5</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
     <style>
-        body { margin: 0; font-family: 'Pretendard', sans-serif; background: #f8f9fa; color: #333; }
+        body { margin: 0; font-family: 'Pretendard', sans-serif; background: #f4f7f9; color: #333; }
         .container { padding: 25px; max-width: 1600px; margin: 0 auto; }
-        .card { background: #fff; border: 1px solid #e9ecef; border-radius: 12px; padding: 20px; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .card { background: #fff; border: 1px solid #e1e4e8; border-radius: 12px; padding: 20px; margin-bottom: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
         .section-title { font-size: 19px; font-weight: 800; color: #007bff; margin-bottom: 18px; display: flex; align-items: center; gap: 10px; }
         table { width: 100%; border-collapse: collapse; font-size: 11px; }
-        th { background: #343a40; color: #fff; padding: 12px; position: sticky; top: 0; z-index: 10; }
-        td { padding: 10px; border-bottom: 1px solid #f1f3f5; text-align: center; }
+        th { background: #2d3436; color: #fff; padding: 12px; position: sticky; top: 0; z-index: 10; }
+        td { padding: 10px; border-bottom: 1px solid #f1f1f1; text-align: center; }
         input[type="checkbox"] { transform: scale(1.2); cursor: pointer; }
-        input, select { padding: 8px; border: 1px solid #ced4da; border-radius: 6px; font-size: 11px; outline: none; }
-        .btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; font-size: 12px; transition: 0.3s; }
+        input, select { padding: 7px; border: 1px solid #dfe6e9; border-radius: 5px; font-size: 11px; outline: none; }
+        .btn { padding: 9px 18px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; font-size: 12px; transition: 0.2s; }
         .btn-primary { background: #007bff; color: #fff; }
-        .btn-success { background: #28a745; color: #fff; }
-        .btn-gemini { background: #6f42c1; color: #fff; padding: 6px 12px; border-radius: 5px; font-size: 10px; }
-        .btn-danger { background: #dc3545; color: #fff; font-size: 10px; padding: 6px 12px; border-radius: 5px; }
+        .btn-success { background: #2ecc71; color: #fff; }
+        .btn-gemini { background: #6c5ce7; color: #fff; padding: 5px 10px; border-radius: 4px; font-size: 10px; }
+        .btn-danger { background: #ff7675; color: #fff; font-size: 10px; padding: 5px 10px; }
         .grid-ai { display: grid; grid-template-columns: 1.6fr 1fr; gap: 25px; }
-        pre { white-space: pre-wrap; word-break: break-all; font-family: inherit; font-size: 14px; line-height: 1.8; color: #212529; padding: 15px; background: #fdfdfd; border-radius: 8px; border: 1px solid #eee; }
-        .filter-group { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; background: #f1f3f5; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #dee2e6; }
-        .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 2000; font-weight: bold; color: #007bff; }
+        .rec-item { padding: 14px; border: 1px solid #edf2f7; border-radius: 10px; margin-bottom: 12px; cursor: pointer; background: #fff; }
+        .rec-item:hover { border-color: #2ecc71; background: #f0fff4; transform: translateY(-2px); }
+        pre { white-space: pre-wrap; word-break: break-all; font-family: inherit; font-size: 14px; line-height: 1.7; color: #2d3436; padding: 15px; background: #fff; border-radius: 8px; border: 1px solid #eee; }
+        .filter-group { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #eee; }
+        .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.85); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; font-weight: bold; color: #007bff; }
     </style>
 </head>
 <body>
@@ -37,10 +39,10 @@
             const [isAuth, setIsAuth] = useState(false);
             const [pass, setPass] = useState("");
             if (!isAuth) return (
-                <div style={{height:'100vh', display:'flex', justifyContent:'center', alignItems:'center', background:'#121212'}}>
+                <div style={{height:'100vh', display:'flex', justifyContent:'center', alignItems:'center', background:'#1e272e'}}>
                     <div style={{background:'#fff', padding:'50px', borderRadius:'24px', textAlign:'center'}}>
-                        <h2 style={{color:'#007bff', marginBottom:'25px'}}>📡 ETF ALPHA MATRIX v86.4</h2>
-                        <input type="password" value={pass} onChange={(e)=>setPass(e.target.value)} onKeyPress={(e)=>e.key==='Enter' && pass==='sd*11070823' && setIsAuth(true)} style={{padding:'15px', width:'250px', border:'2px solid #ddd', borderRadius:'12px'}} placeholder="비밀번호" />
+                        <h2 style={{color:'#007bff', marginBottom:'25px'}}>📡 ETF ALPHA MATRIX v86.5</h2>
+                        <input type="password" value={pass} onChange={(e)=>setPass(e.target.value)} onKeyPress={(e)=>e.key==='Enter' && pass==='sd*11070823' && setIsAuth(true)} style={{padding:'15px', width:'250px', border:'2px solid #eee', borderRadius:'12px'}} placeholder="Password" />
                     </div>
                 </div>
             );
@@ -50,90 +52,85 @@
         const Dashboard = () => {
             const [data, setData] = useState({static:{A:[],C:[],E:[]}, portfolio:{holdings:[]}});
             const [newAsset, setNewAsset] = useState({name:'', code:'', avg_price:'', quantity:'', manual_price:'', purchase_date:''});
-            const [selectedCodes, setSelectedCodes] = useState([]); // 체크박스 선택 상태
+            const [selectedCodes, setSelectedCodes] = useState([]);
             const [aiAnalysis, setAiAnalysis] = useState("");
             const [recommendedStocks, setRecommendedStocks] = useState([]);
             const [loading, setLoading] = useState(false);
             
             const [marketFilter, setMarketFilter] = useState("");
             const [searchKeyword, setSearchKeyword] = useState("");
-            const [excludeKeywords, setExcludeKeywords] = useState("레버리지, 선물, 인버스, 곱버스");
             
-            const todayDate = new Date().toISOString().split('T')[0];
             const API_BASE = "https://etf-data-collector.onrender.com/api";
+            const todayDate = new Date().toISOString().split('T')[0];
 
-            const init = async () => {
-                setLoading(true);
-                try {
+            useEffect(() => {
+                const init = async () => {
                     const res = await fetch(`${API_BASE}/init`);
-                    const result = await res.json();
-                    setData(result);
-                } catch(e) { console.error(e); }
-                finally { setLoading(false); }
-            };
-            useEffect(() => { init(); }, []);
+                    setData(await res.json());
+                };
+                init();
+            }, []);
 
-            // --- 체크박스 조작 함수 ---
-            const toggleSelect = (code) => {
-                setSelectedCodes(prev => 
-                    prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]
-                );
-            };
-
-            const toggleSelectAll = () => {
-                if (selectedCodes.length === data.portfolio.holdings.length) {
-                    setSelectedCodes([]);
-                } else {
-                    setSelectedCodes(data.portfolio.holdings.map(h => h.code));
-                }
-            };
-
-            // --- 분석 실행 (체크된 항목 필터링) ---
+            // --- 분석 실행 로직 (연결 복구) ---
             const runAnalysis = async (item = null) => {
-                let targetHoldings = [];
+                let targetData = [];
                 let mode = "SINGLE";
 
                 if (item) {
-                    targetHoldings = [{ code: item.ticker || item.code, name: item.name }];
+                    // 리더보드에서 한 종목 분석할 때
+                    targetData = [{ code: (item.ticker || item.code), name: item.name }];
                 } else {
-                    targetHoldings = data.portfolio.holdings.filter(h => selectedCodes.includes(h.code));
+                    // 체크박스 선택 종목 분석할 때
+                    targetData = data.portfolio.holdings
+                        .filter(h => selectedCodes.includes(h.code))
+                        .map(h => ({ code: h.code, name: h.name }));
                     mode = "PORTFOLIO";
                 }
 
-                if (targetHoldings.length === 0) return alert("분석할 종목을 체크박스로 선택해주세요!");
+                if (targetData.length === 0) return alert("분석할 종목을 체크박스로 선택해주세요.");
 
                 setLoading(true);
-                setAiAnalysis("🤖 선택된 " + targetHoldings.length + "개 종목을 분석 중입니다...");
-
                 try {
                     const res = await fetch(`${API_BASE}/deep-analyze`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ portfolio: targetHoldings, type: mode, name: item ? item.name : "선택 종목군" })
+                        body: JSON.stringify({ portfolio: targetData, type: mode, code: item ? item.ticker : null })
                     });
                     const result = await res.json();
                     setAiAnalysis(result.analysis);
                 } catch(e) {
-                    setAiAnalysis("❌ 오류 발생: " + e.message);
+                    setAiAnalysis("❌ 연결 오류 발생");
                 } finally {
                     setLoading(false);
                 }
             };
 
-            const savePortfolio = async (holdings) => {
-                await fetch(`${API_BASE}/portfolio/save`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({holdings}) });
+            // --- 추천 종목 추출 버튼 로직 (부활) ---
+            const extractRecs = () => {
+                const regex = /([가-힣A-Z0-9\s]+)\((\d{6})\)/g;
+                let match, extracted = [];
+                while ((match = regex.exec(aiAnalysis)) !== null) {
+                    extracted.push({ name: match[1].trim(), code: match[2] });
+                }
+                if (extracted.length === 0) alert("분석 결과에서 추천 종목 패턴을 찾지 못했습니다.");
+                setRecommendedStocks(extracted);
             };
 
+            const toggleSelect = (code) => setSelectedCodes(prev => prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]);
+            const toggleSelectAll = () => setSelectedCodes(selectedCodes.length === data.portfolio.holdings.length ? [] : data.portfolio.holdings.map(h => h.code));
+
+            const savePortfolio = async (h) => await fetch(`${API_BASE}/portfolio/save`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({holdings:h}) });
+            
             const handleAddAsset = async () => {
-                const updated = [...data.portfolio.holdings, { ...newAsset, manual_price: Number(newAsset.manual_price || newAsset.avg_price) }];
+                const updated = [...data.portfolio.holdings, { ...newAsset, manual_price: Number(newAsset.avg_price) }];
                 setData({ ...data, portfolio: { holdings: updated } });
                 await savePortfolio(updated);
                 setNewAsset({name:'', code:'', avg_price:'', quantity:'', manual_price:'', purchase_date:''});
             };
 
-            const updateAssetField = async (index, field, value) => {
+            const updateAssetField = async (idx, f, v) => {
                 const updated = [...data.portfolio.holdings];
-                updated[index][field] = (field === 'name' || field === 'code' || field === 'purchase_date') ? value : Number(value);
+                updated[idx][f] = (f === 'purchase_date' || f === 'name' || f === 'code') ? v : Number(v);
                 setData({ ...data, portfolio: { holdings: updated } });
                 await savePortfolio(updated);
             };
@@ -146,19 +143,17 @@
 
             const filteredList = useMemo(() => {
                 let list = data.static.A || [];
-                const ex = excludeKeywords.split(',').map(k => k.trim());
-                list = list.filter(item => !ex.some(key => (item.name || "").includes(key)));
-                if (marketFilter === "KOSPI") list = list.filter(item => (item.name || "").includes("200") || (item.name || "").includes("코스피"));
-                if (searchKeyword) list = list.filter(item => (item.name || "").includes(searchKeyword));
+                if (marketFilter === "KOSPI") list = list.filter(i => (i.name || "").includes("200") || (i.name || "").includes("코스피"));
+                if (searchKeyword) list = list.filter(i => (i.name || "").includes(searchKeyword));
                 return list;
-            }, [data.static.A, marketFilter, searchKeyword, excludeKeywords]);
+            }, [data.static.A, marketFilter, searchKeyword]);
 
             return (
                 <div className="container">
-                    {loading && <div className="loading-overlay">⏳ 선택된 종목을 딥러닝 분석 중입니다...</div>}
+                    {loading && <div className="loading-overlay">⏳ Gemini 데이터 분석 중...</div>}
 
                     <section className="card" style={{borderTop: '6px solid #007bff'}}>
-                        <div className="section-title">💼 내 자산 포트폴리오 (체크박스 선택 분석)</div>
+                        <div className="section-title">💼 내 자산 포트폴리오</div>
                         <div style={{display:'flex', gap:'10px', marginBottom:'20px'}}>
                             <input placeholder="종목명" value={newAsset.name} onChange={e=>setNewAsset({...newAsset, name:e.target.value})} />
                             <input placeholder="코드" value={newAsset.code} onChange={e=>setNewAsset({...newAsset, code:e.target.value})} />
@@ -169,7 +164,7 @@
                         <table>
                             <thead>
                                 <tr>
-                                    <th><input type="checkbox" onChange={toggleSelectAll} checked={selectedCodes.length === data.portfolio.holdings.length && data.portfolio.holdings.length > 0} /></th>
+                                    <th><input type="checkbox" onChange={toggleSelectAll} checked={selectedCodes.length > 0 && selectedCodes.length === data.portfolio.holdings.length} /></th>
                                     <th>매수일</th><th>종목명(코드)</th><th>매입단가</th><th>수량</th><th>현재가</th><th>수익률</th><th>삭제</th>
                                 </tr>
                             </thead>
@@ -192,11 +187,12 @@
 
                     <div className="grid-ai">
                         <section className="card">
-                            <div className="section-title">🔍 Gemini 선택 종목 분석</div>
+                            <div className="section-title">🔍 Gemini 인텔리전스 분석</div>
                             <div style={{display:'flex', gap:'12px', marginBottom:'15px'}}>
-                                <button className="btn btn-success" onClick={() => runAnalysis()}>선택 종목 집중 분석 ({selectedCodes.length}개)</button>
+                                <button className="btn btn-success" onClick={() => runAnalysis()}>선택 종목 분석 ({selectedCodes.length}개)</button>
+                                <button className="btn btn-primary" onClick={extractRecs}>추천종목 리스트 추출 ➔</button>
                             </div>
-                            <pre>{aiAnalysis || "포트폴리오에서 분석할 종목을 체크한 뒤 버튼을 눌러주세요."}</pre>
+                            <pre>{aiAnalysis || "분석할 종목을 체크한 뒤 버튼을 눌러주세요."}</pre>
                         </section>
                         <section className="card">
                             <div className="section-title">🌟 AI 추천 종목 리스트</div>
@@ -211,18 +207,16 @@
                     </div>
 
                     <section className="card">
-                        <div className="section-title">🚀 ETF 리더보드 (A_Analysis)</div>
+                        <div className="section-title">🚀 ETF 리더보드</div>
                         <table>
-                            <thead>
-                                <tr><th>종목명(코드)</th><th>현재가</th><th>등급</th><th>Alpha(1M)</th><th>상세분석</th></tr>
-                            </thead>
+                            <thead><tr><th>종목명(코드)</th><th>현재가</th><th>등급</th><th>Alpha</th><th>상세분석</th></tr></thead>
                             <tbody>
                                 {filteredList.slice(0, 50).map((item, i) => (
                                     <tr key={i}>
-                                        <td style={{textAlign:'left', fontWeight:'bold'}}>{item.name}({item.ticker})</td>
-                                        <td>{Number(item.price_curr || 0).toLocaleString()}</td>
-                                        <td><span style={{background:'#007bff', color:'#fff', padding:'2px 8px', borderRadius:'10px'}}>{item.grade_score}</span></td>
-                                        <td style={{color: (item.alpha_1m||0)>0?'red':'blue'}}>{item.alpha_1m}%</td>
+                                        <td style={{textAlign:'left'}}><strong>{item.name}</strong>({item.ticker})</td>
+                                        <td>{Number(item.price_curr).toLocaleString()}</td>
+                                        <td>{item.grade_score}</td>
+                                        <td style={{color:item.alpha_1m>0?'red':'blue'}}>{item.alpha_1m}%</td>
                                         <td><button className="btn-gemini" onClick={() => runAnalysis(item)}>Gemini</button></td>
                                     </tr>
                                 ))}
