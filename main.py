@@ -52,62 +52,57 @@ async def save_port(req: Request):
 async def deep_analyze(req: Request):
     try:
         raw_info = await req.json()
-        # 프론트엔드에서 오는 code(ticker)를 깨끗하게 정리 (따옴표 제거)
-        target_code = str(raw_info.get("code") or raw_info.get("ticker") or "").replace("'", "").strip()
-        target_name = raw_info.get("name") or "미상 종목"
+        
+        # [수정 포인트] 데이터가 없으면 "None" 대신 빈 문자열("")을 기본값으로 설정
+        # 여러 종류의 변수명(code, ticker, 종목코드)을 모두 체크합니다.
+        target_code = str(raw_info.get("code") or raw_info.get("ticker") or raw_info.get("종목코드") or "").replace("'", "").strip()
+        target_name = str(raw_info.get("name") or raw_info.get("종목명") or "분석 대상")
+
+        # 만약 코드가 비어있다면 분석을 중단하고 안내 메시지 반환
+        if not target_code or target_code == "":
+            return {"analysis": "분석할 종목 코드가 선택되지 않았습니다. 리스트에서 종목을 다시 선택해주세요."}
 
         base_url = f"https://raw.githubusercontent.com/{GITHUB_USER}/{REPO_NAME}/main"
 
         def get_clean_df(filename):
             try:
-                # 쉼표 구분 표준 CSV 로드
                 df = pd.read_csv(f"{base_url}/{filename}", encoding='utf-8-sig')
-                # 모든 컬럼명과 문자열 데이터의 양끝 공백 제거
                 df.columns = df.columns.str.strip()
                 return df
             except: return pd.DataFrame()
 
-        # [1] 데이터 로드
         df_a = get_clean_df("CSV_A_Analysis.csv")
         df_c = get_clean_df("CSV_C.csv")
         df_e = get_clean_df("CSV_E.csv")
 
-        # [2] 대상 종목 매칭 (작은따옴표가 포함된 경우와 없는 경우 모두 대응)
         def find_row(df, code):
             if df.empty: return []
             col = next((c for c in df.columns if c.lower() in ['ticker', 'code', '종목코드']), None)
             if not col: return []
-            # 데이터 내의 '005930' 혹은 005930 모두를 타겟 코드와 비교
             mask = df[col].astype(str).str.replace("'", "").str.strip() == code
             return df[mask].to_dict(orient='records')
 
         data_a = find_row(df_a, target_code)
-        data_c = df_c.head(10).to_dict(orient='records') # 매크로는 전체 흐름 전달
+        data_c = df_c.head(5).to_dict(orient='records') if not df_c.empty else []
         data_e = find_row(df_e, target_code)
 
-        # [3] 실시간 B(수급) 정보 수집
-        try:
-            today = datetime.datetime.now().strftime("%Y%m%d")
-            df_b = stock.get_market_net_purchases_of_equities(today, today, "KOSPI")
-            b_summary = df_b.loc[['외국인', '기관합계'], ['순매수거래대금']].to_dict()
-        except: b_summary = "수급 데이터 일시적 지연"
-
-        # [4] Gemini 최종 분석 명령
+        # Gemini 프롬프트 강화: None 방지용 이름 강제 주입
         prompt = f"""
-        당신은 퀀트 전문가입니다. 분석 종목: {target_name}({target_code})
-        - 모델 분석(A): {json.dumps(data_a, ensure_ascii=False)}
+        당신은 수석 퀀트 에널리스트입니다.
+        분석 종목: {target_name}({target_code})
+        
+        [데이터 패키지]
+        - 모델 점수(A): {json.dumps(data_a, ensure_ascii=False)}
         - 시장 매크로(C): {json.dumps(data_c, ensure_ascii=False)}
-        - 상세 지표(E): {json.dumps(data_e, ensure_ascii=False)}
-        - 실시간 수급(B): {json.dumps(b_summary, ensure_ascii=False)}
+        - 가감점 요인(E): {json.dumps(data_e, ensure_ascii=False)}
 
-        [지시]
-        1. 위 데이터를 종합하여 {target_name}에 대한 투자 등급을 재평가하고 사유를 설명하세요.
-        2. '데이터 없음'이라는 표현 대신, 현재 시장 지표를 통해 유추할 수 있는 최선의 전략을 제시하세요.
-        3. 추천 종목은 반드시 '종목명(코드)' 형식으로 3개 포함하세요.
+        지시: 위 데이터를 기반으로 {target_name}의 투자 전략을 수립하세요. 
+        만약 데이터가 비어있다면, {target_name} 종목의 섹터 특성을 반영하여 전문적인 의견을 제시하세요.
+        'None' 또는 '데이터 없음'이라는 단어 사용을 지양하고 전략적 가이드를 제공하세요.
         """
 
         response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
         return {"analysis": response.text}
 
     except Exception as e:
-        return {"analysis": f"🛠️ 분석 도중 오류 발생: {str(e)}"}
+        return {"analysis": f"시스템 분석 중 오류 발생: {str(e)}"}
